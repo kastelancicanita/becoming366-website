@@ -1944,15 +1944,28 @@ a {
 
 .home-letter .ml-form-successContent {
   font-family: var(--font-serif);
-  font-style: italic;
-  font-size: 1.0625rem;
-  color: var(--charcoal-soft);
-  padding: 8px 0 0;
+  font-size: 1.125rem;
+  color: var(--charcoal);
+  padding: 16px 0 0;
 }
 
-.home-letter .ml-form-successContent p {
+.home-letter .ml-form-successContent p,
+.home-letter #letter-form-success p,
+.letter-form-success p,
+.newsletter-popup-success p {
   margin: 0;
   max-width: none;
+  color: var(--charcoal) !important;
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  font-weight: 500;
+  font-style: normal;
+  line-height: 1.6;
+  opacity: 1;
+}
+
+#letter-form-success {
+  padding-top: 8px;
 }
 
 .letter-form-error {
@@ -1962,16 +1975,14 @@ a {
   text-align: center;
 }
 
-#letter-form-success[hidden] {
-  display: none !important;
+#letter-form-success,
+#newsletter-popup-success {
+  display: none;
 }
 
-#letter-form-success:not([hidden]) {
+#letter-form-success.is-visible,
+#newsletter-popup-success.is-visible {
   display: block !important;
-}
-
-#letter-form-panel[hidden] {
-  display: none !important;
 }
 
 body.newsletter-popup-open {
@@ -2040,7 +2051,6 @@ body.newsletter-popup-open {
 .newsletter-popup-lead,
 .newsletter-popup-success p {
   font-family: var(--font-serif);
-  font-style: italic;
   font-size: 1rem;
   color: var(--charcoal-soft);
   margin-bottom: 20px;
@@ -2048,6 +2058,9 @@ body.newsletter-popup-open {
 }
 
 .newsletter-popup-success p {
+  color: var(--charcoal) !important;
+  font-size: 1.125rem;
+  font-weight: 500;
   margin-bottom: 0;
 }
 
@@ -2059,8 +2072,6 @@ body.newsletter-popup-open {
 #newsletter-popup-form-panel[hidden] {
   display: none !important;
 }
-
-/* Journal page — categories */
 .journal-categories {
   display: flex;
   flex-wrap: wrap;

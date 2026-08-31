@@ -354,7 +354,7 @@
 
           <div class="ml-form-embedBody ml-form-embedBodyDefault row-form" id="letter-form-panel">
 
-            <form class="letter-form" id="becoming-letter-form" action="https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe" method="post" novalidate>
+            <form class="letter-form ml-block-form" id="becoming-letter-form" action="https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe" method="post">
 
               <input aria-label="Email address" aria-required="true" type="email" name="fields[email]" placeholder="Your email address" required autocomplete="email">
 
@@ -362,15 +362,13 @@
 
               <input type="hidden" name="anticsrf" value="true">
 
-              <button type="submit" class="btn-accent">Join the Letter →</button>
-
-              <p class="letter-form-error" id="letter-form-error" hidden>Something went wrong. Please try again.</p>
+              <button type="submit" class="btn-accent primary">Join the Letter →</button>
 
             </form>
 
           </div>
 
-          <div class="ml-form-successBody row-success" id="letter-form-success" hidden>
+          <div class="ml-form-successBody row-success ml-block-success" id="letter-form-success" style="display: none">
 
             <div class="ml-form-successContent letter-form-success">
 
