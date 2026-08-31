@@ -96,7 +96,104 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initJournalReadTracking();
 
+  initNewsletterForm();
+
 });
+
+
+
+const MAILERLITE_FORM_URL =
+  "https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe";
+
+function showLetterFormSuccess() {
+  const formPanel = document.getElementById("letter-form-panel");
+  const successPanel = document.getElementById("letter-form-success");
+  const errorMessage = document.getElementById("letter-form-error");
+
+  if (errorMessage) errorMessage.hidden = true;
+  if (formPanel) formPanel.hidden = true;
+  if (successPanel) successPanel.hidden = false;
+}
+
+function submitToMailerLite(email) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `mlJsonp_${Date.now()}`;
+    const script = document.createElement("script");
+    const params = new URLSearchParams({
+      "fields[email]": email,
+      "ml-submit": "1",
+      anticsrf: "true",
+      callback: callbackName,
+    });
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      delete window[callbackName];
+      script.remove();
+    };
+
+    window[callbackName] = (response) => {
+      cleanup();
+
+      if (response && response.success === false) {
+        reject(response);
+        return;
+      }
+
+      resolve(response);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Network error"));
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Timeout"));
+    }, 15000);
+
+    script.src = `${MAILERLITE_FORM_URL}?${params.toString()}`;
+    document.body.appendChild(script);
+  });
+}
+
+function initNewsletterForm() {
+  const form = document.getElementById("becoming-letter-form");
+  if (!form) return;
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  const emailInput = form.querySelector('input[name="fields[email]"]');
+  const errorMessage = document.getElementById("letter-form-error");
+  const defaultButtonText = submitButton?.textContent?.trim() || "Join the Letter →";
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const email = emailInput?.value.trim();
+    if (!email || !emailInput?.checkValidity()) {
+      emailInput?.reportValidity();
+      return;
+    }
+
+    if (errorMessage) errorMessage.hidden = true;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Joining...";
+    }
+
+    try {
+      await submitToMailerLite(email);
+      showLetterFormSuccess();
+    } catch {
+      if (errorMessage) errorMessage.hidden = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = defaultButtonText;
+      }
+    }
+  });
+}
 
 
 

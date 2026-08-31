@@ -1947,11 +1947,31 @@ a {
   font-style: italic;
   font-size: 1.0625rem;
   color: var(--charcoal-soft);
+  padding: 8px 0 0;
 }
 
 .home-letter .ml-form-successContent p {
   margin: 0;
   max-width: none;
+}
+
+.letter-form-error {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #b42318;
+  text-align: center;
+}
+
+#letter-form-success[hidden] {
+  display: none !important;
+}
+
+#letter-form-success:not([hidden]) {
+  display: block !important;
+}
+
+#letter-form-panel[hidden] {
+  display: none !important;
 }
 
 /* Journal page — categories */

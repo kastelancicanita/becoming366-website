@@ -352,9 +352,9 @@
 
         <div class="ml-form-embedWrapper embedForm">
 
-          <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+          <div class="ml-form-embedBody ml-form-embedBodyDefault row-form" id="letter-form-panel">
 
-            <form class="letter-form ml-block-form" action="https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe" data-code="" method="post">
+            <form class="letter-form" id="becoming-letter-form" action="https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe" method="post" novalidate>
 
               <input aria-label="Email address" aria-required="true" type="email" name="fields[email]" placeholder="Your email address" required autocomplete="email">
 
@@ -362,13 +362,15 @@
 
               <input type="hidden" name="anticsrf" value="true">
 
-              <button type="submit" class="btn-accent primary">Join the Letter →</button>
+              <button type="submit" class="btn-accent">Join the Letter →</button>
+
+              <p class="letter-form-error" id="letter-form-error" hidden>Something went wrong. Please try again.</p>
 
             </form>
 
           </div>
 
-          <div class="ml-form-successBody row-success" style="display: none">
+          <div class="ml-form-successBody row-success" id="letter-form-success" hidden>
 
             <div class="ml-form-successContent letter-form-success">
 
@@ -429,16 +431,6 @@
 </footer>
 
 
-
-<script>
-  function ml_webform_success_45397772() {
-    var $ = ml_jQuery || jQuery;
-    $('.ml-subscribe-form-45397772 .row-success').show();
-    $('.ml-subscribe-form-45397772 .row-form').hide();
-  }
-</script>
-
-<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v83147fa8ce2d95cb73ece7f28b469519" type="text/javascript"></script>
 
 <script>fetch("https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/takel");</script>
 
