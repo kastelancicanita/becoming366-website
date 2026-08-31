@@ -109,8 +109,19 @@ const NEWSLETTER_SUBSCRIBED_KEY = "becoming366-newsletter-subscribed";
 const NEWSLETTER_POPUP_DELAY_MS = 30000;
 const NEWSLETTER_POPUP_MIN_SCROLL_Y = 80;
 
-const MAILERLITE_WEBFORMS_URL =
-  "https://groot.mailerlite.com/js/w/webforms.min.js?v83147fa8ce2d95cb73ece7f28b469519";
+const MAILERLITE_FORM_URL =
+  "https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe";
+
+function initNewsletterStorage() {
+  try {
+    if (localStorage.getItem("becoming366-newsletter-popup-seen") === "1") {
+      localStorage.setItem(NEWSLETTER_POPUP_DISMISSED_KEY, "1");
+      localStorage.removeItem("becoming366-newsletter-popup-seen");
+    }
+  } catch {
+    /* ignore storage errors */
+  }
+}
 
 function showLetterFormSuccess() {
   const formPanel = document.getElementById("letter-form-panel");
@@ -176,29 +187,124 @@ function markNewsletterSubscribed() {
   }
 }
 
-function loadMailerLiteWebforms() {
-  window.ml_webform_success_45397772 = function () {
-    showLetterFormSuccess();
-    showNewsletterPopupSuccess();
-  };
+function buildMailerLiteBody(form) {
+  const body = new FormData(form);
+  body.set("ajax", "1");
+  return body;
+}
 
-  window.ml_webform_after_success = function () {
-    markNewsletterSubscribed();
-    showLetterFormSuccess();
-    showNewsletterPopupSuccess();
-  };
+async function submitNewsletterForm(form) {
+  const body = buildMailerLiteBody(form);
 
-  if (document.querySelector("[data-mailerlite-webforms]")) return;
+  try {
+    const response = await fetch(MAILERLITE_FORM_URL, {
+      method: "POST",
+      body,
+      credentials: "omit",
+    });
 
-  const script = document.createElement("script");
-  script.src = MAILERLITE_WEBFORMS_URL;
-  script.async = true;
-  script.dataset.mailerliteWebforms = "true";
-  document.body.appendChild(script);
+    const data = await response.json();
+
+    if (data?.success) {
+      return data;
+    }
+
+    throw data || new Error("Subscribe failed");
+  } catch {
+    return submitNewsletterFormViaIframe(form);
+  }
+}
+
+function submitNewsletterFormViaIframe(form) {
+  return new Promise((resolve, reject) => {
+    const frameName = `ml-frame-${Date.now()}`;
+    const iframe = document.createElement("iframe");
+    iframe.name = frameName;
+    iframe.style.cssText =
+      "position:absolute;width:0;height:0;border:0;visibility:hidden";
+    document.body.appendChild(iframe);
+
+    const tempForm = form.cloneNode(true);
+    tempForm.target = frameName;
+    tempForm.style.display = "none";
+    document.body.appendChild(tempForm);
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      tempForm.remove();
+      iframe.remove();
+    };
+
+    iframe.onload = () => {
+      try {
+        const text = iframe.contentDocument?.body?.textContent?.trim() || "";
+        const data = text ? JSON.parse(text) : { success: true };
+
+        cleanup();
+
+        if (data?.success) {
+          resolve(data);
+          return;
+        }
+
+        reject(data);
+      } catch {
+        cleanup();
+        resolve({ success: true });
+      }
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      resolve({ success: true });
+    }, 10000);
+
+    tempForm.submit();
+  });
+}
+
+function bindNewsletterForm(form, onSuccess) {
+  if (!form || form.dataset.newsletterBound === "true") return;
+
+  form.dataset.newsletterBound = "true";
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  const emailInput = form.querySelector('input[name="fields[email]"]');
+  const defaultButtonText =
+    submitButton?.textContent?.trim() || "Join the Letter →";
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const email = emailInput?.value.trim();
+    if (!email || !emailInput?.checkValidity()) {
+      emailInput?.reportValidity();
+      return;
+    }
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Joining...";
+    }
+
+    try {
+      await submitNewsletterForm(form);
+      markNewsletterSubscribed();
+      onSuccess?.();
+    } catch {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = defaultButtonText;
+      }
+
+      window.alert("Something went wrong. Please try again.");
+    }
+  });
 }
 
 function initNewsletterForm() {
-  loadMailerLiteWebforms();
+  const form = document.getElementById("becoming-letter-form");
+  bindNewsletterForm(form, showLetterFormSuccess);
 }
 
 function ensureNewsletterPopup() {
@@ -250,6 +356,11 @@ function ensureNewsletterPopup() {
       markNewsletterPopupDismissed();
     }
   });
+
+  bindNewsletterForm(
+    popup.querySelector("#newsletter-popup-form"),
+    showNewsletterPopupSuccess
+  );
 }
 
 function openNewsletterPopup() {
@@ -276,12 +387,17 @@ function closeNewsletterPopup() {
 }
 
 function initNewsletterPopup() {
+  initNewsletterStorage();
+
   if (hasNewsletterPopupDismissed() || hasNewsletterSubscribed()) return;
 
   let timerStarted = false;
 
   const schedulePopup = () => {
-    if (timerStarted) return;
+    if (timerStarted || hasNewsletterPopupDismissed() || hasNewsletterSubscribed()) {
+      return;
+    }
+
     timerStarted = true;
 
     window.setTimeout(() => {
@@ -300,6 +416,10 @@ function initNewsletterPopup() {
     },
     { passive: true }
   );
+
+  if (window.scrollY >= NEWSLETTER_POPUP_MIN_SCROLL_Y) {
+    schedulePopup();
+  }
 }
 
 
