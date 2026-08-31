@@ -2276,3 +2276,37 @@ body.newsletter-popup-open {
 .legal-content ul {
   margin: 0 0 16px 20px;
 }
+
+/* ── 404 page ── */
+.error-page {
+  min-height: 50vh;
+  display: flex;
+  align-items: center;
+}
+
+.error-page .container {
+  width: 100%;
+}
+
+.error-page p + p {
+  margin-top: 12px;
+}
+
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+  margin-top: 36px;
+}
+
+.error-footnote {
+  margin-top: 56px;
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: var(--charcoal-soft);
+  opacity: 0.55;
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+}
