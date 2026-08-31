@@ -105,6 +105,153 @@ document.addEventListener("DOMContentLoaded", () => {
 const MAILERLITE_FORM_URL =
   "https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe";
 
+const MAILERLITE_JSONP_CALLBACK = "mlWebformSubmitted";
+
+function getMailerLiteGuid() {
+  try {
+    if (window.localStorage?.ml_guid) {
+      return window.localStorage.ml_guid;
+    }
+
+    const guid =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `ml-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    window.localStorage.ml_guid = guid;
+    return guid;
+  } catch {
+    return "";
+  }
+}
+
+function buildMailerLiteParams(form) {
+  const params = new URLSearchParams();
+  const formData = new FormData(form);
+
+  formData.forEach((value, key) => {
+    params.append(key, String(value));
+  });
+
+  params.set("ajax", "1");
+
+  const guid = getMailerLiteGuid();
+  if (guid) {
+    params.set("guid", guid);
+  }
+
+  return params;
+}
+
+function submitViaJsonp(form) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    const params = buildMailerLiteParams(form);
+    params.set("callback", MAILERLITE_JSONP_CALLBACK);
+
+    let settled = false;
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      script.remove();
+
+      if (window[MAILERLITE_JSONP_CALLBACK] === handler) {
+        delete window[MAILERLITE_JSONP_CALLBACK];
+      }
+    };
+
+    const handler = (response) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+
+      if (response?.success) {
+        resolve(response);
+        return;
+      }
+
+      reject(response || new Error("Subscribe failed"));
+    };
+
+    const previousHandler = window[MAILERLITE_JSONP_CALLBACK];
+    window[MAILERLITE_JSONP_CALLBACK] = (response) => {
+      handler(response);
+
+      if (
+        typeof previousHandler === "function" &&
+        previousHandler !== handler
+      ) {
+        previousHandler(response);
+      }
+    };
+
+    script.onerror = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error("Network error"));
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error("Timeout"));
+    }, 15000);
+
+    script.src = `${MAILERLITE_FORM_URL}?${params.toString()}`;
+    document.body.appendChild(script);
+  });
+}
+
+async function submitViaPost(form) {
+  const body = buildMailerLiteParams(form);
+
+  const response = await fetch(MAILERLITE_FORM_URL, {
+    method: "POST",
+    body,
+    mode: "cors",
+    credentials: "omit",
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (!data?.success) {
+    throw data || new Error("Subscribe failed");
+  }
+
+  return data;
+}
+
+async function submitViaNoCorsPost(form) {
+  const body = buildMailerLiteParams(form);
+
+  await fetch(MAILERLITE_FORM_URL, {
+    method: "POST",
+    body,
+    mode: "no-cors",
+    credentials: "omit",
+  });
+
+  return { success: true };
+}
+
+async function submitToMailerLite(form) {
+  try {
+    return await submitViaJsonp(form);
+  } catch {
+    try {
+      return await submitViaPost(form);
+    } catch {
+      return submitViaNoCorsPost(form);
+    }
+  }
+}
+
 function showLetterFormSuccess() {
   const formPanel = document.getElementById("letter-form-panel");
   const successPanel = document.getElementById("letter-form-success");
@@ -113,49 +260,6 @@ function showLetterFormSuccess() {
   if (errorMessage) errorMessage.hidden = true;
   if (formPanel) formPanel.hidden = true;
   if (successPanel) successPanel.hidden = false;
-}
-
-function submitToMailerLite(email) {
-  return new Promise((resolve, reject) => {
-    const callbackName = `mlJsonp_${Date.now()}`;
-    const script = document.createElement("script");
-    const params = new URLSearchParams({
-      "fields[email]": email,
-      "ml-submit": "1",
-      anticsrf: "true",
-      callback: callbackName,
-    });
-
-    const cleanup = () => {
-      window.clearTimeout(timeoutId);
-      delete window[callbackName];
-      script.remove();
-    };
-
-    window[callbackName] = (response) => {
-      cleanup();
-
-      if (response && response.success === false) {
-        reject(response);
-        return;
-      }
-
-      resolve(response);
-    };
-
-    script.onerror = () => {
-      cleanup();
-      reject(new Error("Network error"));
-    };
-
-    const timeoutId = window.setTimeout(() => {
-      cleanup();
-      reject(new Error("Timeout"));
-    }, 15000);
-
-    script.src = `${MAILERLITE_FORM_URL}?${params.toString()}`;
-    document.body.appendChild(script);
-  });
 }
 
 function initNewsletterForm() {
@@ -183,7 +287,7 @@ function initNewsletterForm() {
     }
 
     try {
-      await submitToMailerLite(email);
+      await submitToMailerLite(form);
       showLetterFormSuccess();
     } catch {
       if (errorMessage) errorMessage.hidden = false;
