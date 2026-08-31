@@ -2256,6 +2256,29 @@ body.newsletter-popup-open {
   margin: 32px 0 12px;
 }
 
+.legal-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 24px 0 8px;
+  color: var(--charcoal);
+}
+
+.legal-updated {
+  font-size: 0.875rem;
+  color: var(--charcoal-soft);
+  margin-bottom: 24px;
+}
+
+.legal-content a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal-content a:hover {
+  opacity: 0.75;
+}
+
 .legal-content p,
 .legal-content li {
   font-size: 0.9375rem;
