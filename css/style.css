@@ -1,4 +1,4 @@
-@import url("https://fonts.cdnfonts.com/css/brittany-signature");
+@import url("fonts.css");
 
 :root {
   --cream: #faf7f2;
@@ -20,7 +20,7 @@
   --chapter-5: #d5a338;
   --font-serif: "Cormorant Garamond", Georgia, serif;
   --font-sans: "DM Sans", system-ui, sans-serif;
-  --font-script: "Brittany Signature", cursive;
+  --font-script: "Great Vibes", cursive;
   --max-width: 1080px;
   --narrow: 640px;
   --line: rgba(42, 40, 38, 0.08);
