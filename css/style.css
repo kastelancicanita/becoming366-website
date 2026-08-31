@@ -2,6 +2,7 @@
 
 :root {
   --cream: #faf7f2;
+  --white: #ffffff;
   --cream-dark: #f0ebe3;
   --charcoal: #2a2826;
   --charcoal-soft: #4a4744;
@@ -1887,8 +1888,18 @@ a {
   border: 1px solid var(--line);
   border-radius: 0;
   background: var(--white);
+  color: var(--charcoal);
+  caret-color: var(--charcoal);
+  -webkit-text-fill-color: var(--charcoal);
   font-family: var(--font-sans);
-  font-size: 0.9375rem;
+  font-size: 16px;
+}
+
+.home-letter .letter-form input[type="email"]:-webkit-autofill,
+.home-letter .letter-form input[type="email"]:-webkit-autofill:hover,
+.home-letter .letter-form input[type="email"]:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--charcoal);
+  box-shadow: 0 0 0 1000px var(--white) inset;
 }
 
 .letter-form input[type="email"]::placeholder {
@@ -1917,6 +1928,30 @@ a {
 
 .btn-accent:hover {
   opacity: 0.88;
+}
+
+.home-letter .ml-form-embedContainer,
+.home-letter .ml-form-embedWrapper,
+.home-letter .ml-form-embedBody {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  max-width: 400px !important;
+  width: 100% !important;
+}
+
+.home-letter .ml-form-successContent {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.0625rem;
+  color: var(--charcoal-soft);
+}
+
+.home-letter .ml-form-successContent p {
+  margin: 0;
+  max-width: none;
 }
 
 /* Journal page — categories */

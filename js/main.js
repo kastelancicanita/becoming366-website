@@ -90,34 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-  const newsletterForms = document.querySelectorAll(".newsletter-form");
-
-  newsletterForms.forEach((form) => {
-
-    form.addEventListener("submit", (e) => {
-
-      e.preventDefault();
-
-      const email = form.querySelector('input[type="email"]');
-
-      if (email && email.value) {
-
-        alert(
-
-          "Thank you — we'll connect The Becoming Letter to your email provider soon."
-
-        );
-
-        email.value = "";
-
-      }
-
-    });
-
-  });
-
-
-
   initCarousels();
 
   initJournalFilter();
