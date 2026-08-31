@@ -1974,6 +1974,92 @@ a {
   display: none !important;
 }
 
+body.newsletter-popup-open {
+  overflow: hidden;
+}
+
+.newsletter-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.newsletter-popup[hidden] {
+  display: none !important;
+}
+
+.newsletter-popup-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(42, 40, 38, 0.52);
+}
+
+.newsletter-popup-panel {
+  position: relative;
+  width: min(100%, 420px);
+  background: var(--cream);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  padding: 36px 28px 32px;
+  text-align: center;
+}
+
+.newsletter-popup-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--charcoal-soft);
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.newsletter-popup-close:hover {
+  color: var(--charcoal);
+}
+
+.newsletter-popup-panel .eyebrow {
+  margin-bottom: 8px;
+}
+
+.newsletter-popup-panel h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.newsletter-popup-lead,
+.newsletter-popup-success p {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--charcoal-soft);
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+
+.newsletter-popup-success p {
+  margin-bottom: 0;
+}
+
+.newsletter-popup-panel .letter-form {
+  max-width: none;
+}
+
+#newsletter-popup-success[hidden],
+#newsletter-popup-form-panel[hidden] {
+  display: none !important;
+}
+
 /* Journal page — categories */
 .journal-categories {
   display: flex;

@@ -98,9 +98,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initNewsletterForm();
 
+  initNewsletterPopup();
+
 });
 
 
+
+const NEWSLETTER_POPUP_KEY = "becoming366-newsletter-popup-seen";
+const NEWSLETTER_POPUP_SCROLL_MS = 30000;
+const NEWSLETTER_POPUP_MIN_SCROLL_Y = 100;
 
 const MAILERLITE_FORM_URL =
   "https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe";
@@ -262,14 +268,34 @@ function showLetterFormSuccess() {
   if (successPanel) successPanel.hidden = false;
 }
 
-function initNewsletterForm() {
-  const form = document.getElementById("becoming-letter-form");
-  if (!form) return;
+function hasNewsletterPopupSeen() {
+  try {
+    return localStorage.getItem(NEWSLETTER_POPUP_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markNewsletterPopupSeen() {
+  try {
+    localStorage.setItem(NEWSLETTER_POPUP_KEY, "1");
+  } catch {
+    /* ignore storage errors */
+  }
+
+  closeNewsletterPopup();
+}
+
+function bindNewsletterForm(form, { onSuccess } = {}) {
+  if (!form || form.dataset.newsletterBound === "true") return;
+
+  form.dataset.newsletterBound = "true";
 
   const submitButton = form.querySelector('button[type="submit"]');
   const emailInput = form.querySelector('input[name="fields[email]"]');
-  const errorMessage = document.getElementById("letter-form-error");
-  const defaultButtonText = submitButton?.textContent?.trim() || "Join the Letter →";
+  const errorMessage = form.querySelector(".letter-form-error");
+  const defaultButtonText =
+    submitButton?.textContent?.trim() || "Join the Letter →";
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -288,7 +314,8 @@ function initNewsletterForm() {
 
     try {
       await submitToMailerLite(form);
-      showLetterFormSuccess();
+      markNewsletterPopupSeen();
+      onSuccess?.();
     } catch {
       if (errorMessage) errorMessage.hidden = false;
       if (submitButton) {
@@ -297,6 +324,151 @@ function initNewsletterForm() {
       }
     }
   });
+}
+
+function initNewsletterForm() {
+  const form = document.getElementById("becoming-letter-form");
+  if (!form) return;
+
+  bindNewsletterForm(form, { onSuccess: showLetterFormSuccess });
+}
+
+function ensureNewsletterPopup() {
+  if (document.getElementById("newsletter-popup")) return;
+
+  const popup = document.createElement("div");
+  popup.id = "newsletter-popup";
+  popup.className = "newsletter-popup";
+  popup.hidden = true;
+  popup.setAttribute("role", "dialog");
+  popup.setAttribute("aria-modal", "true");
+  popup.setAttribute("aria-labelledby", "newsletter-popup-title");
+
+  popup.innerHTML = `
+    <div class="newsletter-popup-backdrop" data-popup-close></div>
+    <div class="newsletter-popup-panel">
+      <button type="button" class="newsletter-popup-close" aria-label="Close newsletter popup">&times;</button>
+      <p class="eyebrow">The Becoming Letter</p>
+      <h2 id="newsletter-popup-title">Stay with me as we figure this out.</h2>
+      <p class="newsletter-popup-lead">New Journal entries, personal notes, thoughts, and little reminders — sent to your inbox.</p>
+      <div id="newsletter-popup-form-panel">
+        <form class="letter-form" id="newsletter-popup-form" action="https://assets.mailerlite.com/jsonp/2606766/forms/197318874706740920/subscribe" method="post" novalidate>
+          <input aria-label="Email address" aria-required="true" type="email" name="fields[email]" placeholder="Your email address" required autocomplete="email">
+          <input type="hidden" name="ml-submit" value="1">
+          <input type="hidden" name="anticsrf" value="true">
+          <button type="submit" class="btn-accent">Join the Letter →</button>
+          <p class="letter-form-error" hidden>Something went wrong. Please try again.</p>
+        </form>
+      </div>
+      <div id="newsletter-popup-success" class="newsletter-popup-success" hidden>
+        <p>Thank you — check your inbox to confirm your subscription.</p>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+
+  popup.querySelector(".newsletter-popup-close")?.addEventListener("click", () => {
+    markNewsletterPopupSeen();
+  });
+
+  popup.querySelector("[data-popup-close]")?.addEventListener("click", () => {
+    markNewsletterPopupSeen();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !popup.hidden) {
+      markNewsletterPopupSeen();
+    }
+  });
+
+  bindNewsletterForm(popup.querySelector("#newsletter-popup-form"), {
+    onSuccess: showNewsletterPopupSuccess,
+  });
+}
+
+function showNewsletterPopupSuccess() {
+  const formPanel = document.getElementById("newsletter-popup-form-panel");
+  const successPanel = document.getElementById("newsletter-popup-success");
+  const errorMessage = document.querySelector(
+    "#newsletter-popup-form .letter-form-error"
+  );
+
+  if (errorMessage) errorMessage.hidden = true;
+  if (formPanel) formPanel.hidden = true;
+  if (successPanel) successPanel.hidden = false;
+}
+
+function openNewsletterPopup() {
+  if (hasNewsletterPopupSeen()) return;
+
+  ensureNewsletterPopup();
+
+  const popup = document.getElementById("newsletter-popup");
+  if (!popup || !popup.hidden) return;
+
+  popup.hidden = false;
+  document.body.classList.add("newsletter-popup-open");
+
+  const emailInput = popup.querySelector('input[name="fields[email]"]');
+  window.setTimeout(() => emailInput?.focus(), 150);
+}
+
+function closeNewsletterPopup() {
+  const popup = document.getElementById("newsletter-popup");
+  if (!popup) return;
+
+  popup.hidden = true;
+  document.body.classList.remove("newsletter-popup-open");
+}
+
+function initNewsletterPopup() {
+  if (hasNewsletterPopupSeen()) return;
+
+  let accumulatedScrollMs = 0;
+  let lastScrollAt = null;
+  let popupShown = false;
+
+  const maybeShowPopup = () => {
+    if (popupShown || hasNewsletterPopupSeen()) return;
+    if (accumulatedScrollMs < NEWSLETTER_POPUP_SCROLL_MS) return;
+
+    popupShown = true;
+    openNewsletterPopup();
+  };
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (popupShown || hasNewsletterPopupSeen()) return;
+      if (window.scrollY < NEWSLETTER_POPUP_MIN_SCROLL_Y) return;
+
+      const now = performance.now();
+
+      if (lastScrollAt !== null) {
+        const gap = now - lastScrollAt;
+        if (gap <= 300) {
+          accumulatedScrollMs += gap;
+        }
+      }
+
+      lastScrollAt = now;
+      maybeShowPopup();
+    },
+    { passive: true }
+  );
+
+  window.setInterval(() => {
+    if (popupShown || hasNewsletterPopupSeen()) return;
+    if (window.scrollY < NEWSLETTER_POPUP_MIN_SCROLL_Y) return;
+    if (lastScrollAt === null) return;
+
+    const now = performance.now();
+    if (now - lastScrollAt <= 300) {
+      accumulatedScrollMs += 250;
+      maybeShowPopup();
+    }
+  }, 250);
 }
 
 
