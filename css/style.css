@@ -125,6 +125,31 @@ a {
   transform-origin: 0% 88%;
 }
 
+.logo-image-link {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.site-header .logo-image-link {
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: normal;
+}
+
+.logo-img {
+  display: block;
+  height: 46px;
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .logo-img {
+    height: 40px;
+  }
+}
+
 .nav-desktop {
   display: none;
   align-items: center;
