@@ -15,6 +15,7 @@ import {
   buildManagementLinkHtml,
   buildManagementLinkSubject,
 } from "../src/email/templates/management";
+import { buildManagementUiActivateUrl } from "../src/lib/management-link";
 import { MANAGEMENT_REQUEST_OK } from "../src/lib/management-response";
 import {
   handleDeliveryEmailChangeRequest,
@@ -172,6 +173,22 @@ describe("management request generic responses", () => {
     expect(response.status).toBe(200);
     const json = (await response.json()) as { message?: string };
     expect(json.message).toBe(MANAGEMENT_REQUEST_OK.message);
+  });
+});
+
+describe("management magic link prefetch regression", () => {
+  it("email href targets UI management_token, not worker GET activate", () => {
+    const uiUrl = buildManagementUiActivateUrl(
+      {
+        VAULT_ENV: "staging",
+        LETTER_VAULT_UI_BASE_URL:
+          "https://letter-vault-phase7-preview.becoming366-website.pages.dev",
+      },
+      "sample-token",
+    );
+    const html = buildManagementLinkHtml(uiUrl);
+    expect(html).toContain(uiUrl);
+    expect(html).not.toContain("/v1/staging/management/activate");
   });
 });
 

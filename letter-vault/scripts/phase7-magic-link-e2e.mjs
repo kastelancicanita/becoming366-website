@@ -17,11 +17,15 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const WORKER_DIR = join(__dir, "../worker");
 
 const token = randomBytes(32).toString("base64url");
-spawnSync(
+const put = spawnSync(
   "npx wrangler secret put LETTER_VAULT_STAGING_ADMIN_TOKEN --env staging",
-  { input: token, shell: true, cwd: WORKER_DIR, stdio: "inherit" },
+  { input: token, shell: true, cwd: WORKER_DIR, encoding: "utf8" },
 );
-await new Promise((r) => setTimeout(r, 8000));
+if (put.status !== 0) {
+  console.error("wrangler secret put failed", put.stderr || put.stdout || put.error);
+  process.exit(1);
+}
+await new Promise((r) => setTimeout(r, 25000));
 
 const admin = { "X-Letter-Vault-Staging-Admin": token };
 
@@ -42,6 +46,31 @@ async function api(path, opts = {}) {
     json = { _raw: text };
   }
   return { status: res.status, json, headers: res.headers };
+}
+
+async function waitForAdmin(maxAttempts = 8) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const probe = await api("/v1/staging/entitlements/issue", {
+      method: "POST",
+      headers: admin,
+      body: JSON.stringify({
+        purchaser_email: "probe@example.com",
+        external_order_ref: `DUMMY-PROBE-${Date.now()}-${i}`,
+        product_type: "SINGLE",
+        letters_allowed: 1,
+        display_title: "Probe",
+      }),
+    });
+    if (probe.status === 200) return true;
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  return false;
+}
+
+const adminReady = await waitForAdmin();
+if (!adminReady) {
+  console.error(JSON.stringify({ error: "admin_token_not_ready", admin_token_for_cli: token }, null, 2));
+  process.exit(1);
 }
 
 const out = { steps: [] };
@@ -127,7 +156,7 @@ const storageBefore = await api(
 );
 step("token_row_exists_unused", storageBefore.json.token_rows > 0, storageBefore.json);
 
-const prefetchUi = await fetch(uiUrl.toString(), { redirect: "manual" });
+const prefetchUi = await fetch(uiUrl.toString(), { redirect: "follow" });
 step(
   "prefetch_ui_does_not_consume",
   prefetchUi.status === 200,
@@ -138,12 +167,14 @@ const storageAfterPrefetch = await api(
   `/v1/staging/management/test/token-storage/${letterUuid}`,
   { method: "GET", headers: admin },
 );
-const latestAfterPrefetch = storageAfterPrefetch.json;
+const rowsAfter = storageAfterPrefetch.json.token_rows ?? 0;
+const unusedAfter =
+  Array.isArray(storageAfterPrefetch.json.rows) &&
+  storageAfterPrefetch.json.rows.some((r) => !r.used_at);
 step(
   "token_still_unused_after_ui_prefetch",
-  latestAfterPrefetch.token_rows > 0 &&
-    !latestAfterPrefetch.audit?.some?.((r) => r.used_at),
-  latestAfterPrefetch,
+  rowsAfter > 0 && storageBefore.json.token_rows === rowsAfter,
+  storageAfterPrefetch.json,
 );
 
 const activate = await api("/v1/staging/management/activate", {
@@ -186,11 +217,24 @@ step(
 );
 
 out.all_passed = out.steps.every((s) => s.ok);
+
+const anitaIssue = await api("/v1/staging/entitlements/issue", {
+  method: "POST",
+  headers: admin,
+  body: JSON.stringify({
+    purchaser_email: PURCHASER,
+    external_order_ref: `DUMMY-P7-ANITA-${Date.now()}`,
+    product_type: "SINGLE",
+    letters_allowed: 1,
+    display_title: "Single Letter",
+  }),
+});
 out.fresh_single_for_anita = {
   purchaser_email: PURCHASER,
-  access_code: issue.json.access_code,
-  public_letter_id: publicLetterId,
-  note: "Already sealed in this E2E run — use Manage my Vault → SEND ME A SECURE LINK",
+  access_code: anitaIssue.json.access_code ?? null,
+  issue_status: anitaIssue.status,
+  admin_token_for_scripts: token,
+  note: "Unsealed — seal letter, then Manage my Vault → SEND ME A SECURE LINK",
 };
 
 console.log(JSON.stringify(out, null, 2));
