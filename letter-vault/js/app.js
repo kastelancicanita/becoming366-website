@@ -238,10 +238,23 @@
     if (state.inCollection && state.slots.length) {
       renderCollection();
       showStep("step-collection");
+    } else if (
+      state.slots.length === 1 &&
+      state.slots[0].slot_status === "SEALED"
+    ) {
+      showAlreadySealedSingle(state.slots[0]);
     } else {
       startSingleFlow(state.slots[0]);
     }
   });
+
+  function showAlreadySealedSingle(slot) {
+    showError("");
+    $("success-date").textContent = formatWrittenDate(slot.delivery_at);
+    $("success-letter-id").textContent = slot.public_letter_id || "";
+    $("btn-return-collection").hidden = true;
+    showStep("step-success");
+  }
 
   $("go-manage").addEventListener("click", () => showStep("step-manage-entry"));
   $("back-entry").addEventListener("click", () => showStep("step-entry"));
