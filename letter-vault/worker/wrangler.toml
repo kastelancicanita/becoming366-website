@@ -17,7 +17,7 @@ vars = { VAULT_ENV = "development" }
 # --- Staging ---
 [env.staging]
 name = "letter-vault-api-staging"
-vars = { VAULT_ENV = "staging", LETTER_VAULT_UI_BASE_URL = "https://becoming366-website.pages.dev" }
+vars = { VAULT_ENV = "staging", LETTER_VAULT_UI_BASE_URL = "https://letter-vault-phase7-preview.becoming366-website.pages.dev" }
 
 [env.staging.triggers]
 crons = ["* * * * *"]
