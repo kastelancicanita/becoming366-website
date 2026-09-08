@@ -78,6 +78,17 @@ export async function consumeManagementToken(
   env: Env,
   rawToken: string,
 ): Promise<{ letter_id: string } | null> {
+  const validated = await validateManagementToken(env, rawToken);
+  if (!validated) return null;
+  const marked = await markManagementTokenUsed(env, validated.id);
+  if (!marked) return null;
+  return { letter_id: validated.letter_id };
+}
+
+export async function validateManagementToken(
+  env: Env,
+  rawToken: string,
+): Promise<{ id: string; letter_id: string } | null> {
   const tokenHash = await hashToken(pepper(env), rawToken);
   const { data: row, error } = await client(env)
     .from("letter_vault_management_tokens")
@@ -85,19 +96,23 @@ export async function consumeManagementToken(
     .eq("token_hash", tokenHash)
     .maybeSingle();
 
-  if (error || !row) return null;
-  if (row.used_at || isExpired(row.expires_at)) return null;
+  if (error || !row || row.used_at || isExpired(row.expires_at)) return null;
+  return { id: row.id, letter_id: row.letter_id };
+}
 
-  const { data: updated, error: updErr } = await client(env)
+export async function markManagementTokenUsed(
+  env: Env,
+  tokenId: string,
+): Promise<boolean> {
+  const { data, error } = await client(env)
     .from("letter_vault_management_tokens")
     .update({ used_at: new Date().toISOString() })
-    .eq("id", row.id)
+    .eq("id", tokenId)
     .is("used_at", null)
-    .select("letter_id")
+    .select("id")
     .maybeSingle();
 
-  if (updErr || !updated) return null;
-  return { letter_id: updated.letter_id };
+  return !error && Boolean(data);
 }
 
 export async function createManagementSession(

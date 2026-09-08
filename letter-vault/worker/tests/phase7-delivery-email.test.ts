@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildManagementUiActivateUrl } from "../src/lib/management-link";
 import {
   canDeliverToRecipient,
   hasVerifiedDeliveryEmail,
@@ -78,6 +79,22 @@ describe("management request letter lookup", () => {
       );
     expect(looksLikeLetterUuid("LV-A2696ADB")).toBe(false);
     expect(looksLikeLetterUuid("a2696adb-ffaf-42c5-a2e5-8d1748d75fad")).toBe(true);
+  });
+});
+
+describe("management magic link URL", () => {
+  it("points to preview UI with management_token (not worker GET activate)", () => {
+    const url = buildManagementUiActivateUrl(
+      {
+        VAULT_ENV: "staging",
+        LETTER_VAULT_UI_BASE_URL:
+          "https://letter-vault-phase7-preview.becoming366-website.pages.dev",
+      },
+      "test-token-value",
+    );
+    expect(url).toContain("letter-vault/index.html");
+    expect(url).toContain("management_token=test-token-value");
+    expect(url).not.toContain("/v1/staging/management/activate");
   });
 });
 

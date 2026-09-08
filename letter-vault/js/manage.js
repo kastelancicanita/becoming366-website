@@ -111,6 +111,12 @@
 
     tryOpenFromUrl: function () {
       const params = new URLSearchParams(window.location.search);
+      const activateToken = params.get("management_token");
+      if (activateToken) {
+        window.history.replaceState({}, "", window.location.pathname);
+        LvManage.activateFromEmailToken(activateToken);
+        return true;
+      }
       const session = params.get("management_session");
       if (!session) return false;
       mgmt.session = session;
@@ -118,6 +124,31 @@
       window.history.replaceState({}, "", window.location.pathname);
       LvManage.openManagementSession();
       return true;
+    },
+
+    activateFromEmailToken: async function (rawToken) {
+      showMgmtError("");
+      const res = await fetch(
+        window.LETTER_VAULT_API + "/v1/staging/management/activate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: rawToken }),
+        },
+      );
+      const json = await res.json().catch(function () {
+        return {};
+      });
+      if (res.status !== 200 || json.status !== "ok" || !json.session_token) {
+        showMgmtError(
+          "This secure link has expired. Request a new one from Manage my Vault.",
+        );
+        showStep("step-manage-entry");
+        return;
+      }
+      mgmt.session = json.session_token;
+      mgmt.letterId = json.public_letter_id || null;
+      LvManage.openManagementSession();
     },
 
     openManagementSession: async function () {

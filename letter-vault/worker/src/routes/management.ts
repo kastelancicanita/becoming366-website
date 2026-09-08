@@ -2,7 +2,6 @@ import { generateSecureToken, maskEmail } from "../crypto/management-token";
 import {
   auditDeliveryEmail,
   activateSurpriseDeliveryEmail,
-  consumeManagementToken,
   createDeliveryEmailChange,
   createManagementSession,
   createManagementToken,
@@ -10,7 +9,9 @@ import {
   findLetterByIdAndPurchaser,
   findLetterByPublicIdAndPurchaser,
   getLetterManagementMetadata,
+  markManagementTokenUsed,
   validateManagementSession,
+  validateManagementToken,
   verifyDeliveryEmailChange,
 } from "../db/management";
 import { fetchLetterById, hasVerifiedDeliveryEmail } from "../db/letters";
@@ -41,6 +42,7 @@ import {
   recordAuthAttempt,
 } from "../lib/rate-limit";
 import { stagingOnlyResponse } from "../lib/staging-guard";
+import { buildManagementUiActivateUrl } from "../lib/management-link";
 import { createClient } from "@supabase/supabase-js";
 
 const SESSION_HEADER = "X-Letter-Vault-Management-Session";
@@ -134,7 +136,7 @@ export async function handleManagementRequest(
       await invalidateUnusedManagementTokens(env, letter.id);
       await createManagementToken(env, letter.id, rawToken);
 
-      const activateUrl = `${managementBaseUrl(request)}/v1/staging/management/activate?token=${encodeURIComponent(rawToken)}`;
+      const activateUrl = buildManagementUiActivateUrl(env, rawToken);
       await sendViaResend(env, {
         to: purchaserEmail,
         subject: buildManagementLinkSubject(),
@@ -246,24 +248,27 @@ async function activateTokenAndCreateSession(
   rawToken: string,
 ): Promise<Response> {
   try {
-    const consumed = await consumeManagementToken(env, rawToken);
-    if (!consumed) return managementDeniedResponse();
+    const validated = await validateManagementToken(env, rawToken);
+    if (!validated) return managementDeniedResponse();
 
     const rawSession = generateSecureToken();
     const session = await createManagementSession(
       env,
-      consumed.letter_id,
+      validated.letter_id,
       rawSession,
     );
 
-    const letter = await fetchLetterById(env, consumed.letter_id);
+    const marked = await markManagementTokenUsed(env, validated.id);
+    if (!marked) return managementDeniedResponse();
+
+    const letter = await fetchLetterById(env, validated.letter_id);
 
     return jsonResponse({
       status: "ok",
       phase: "phase6",
       session_token: session.session_token,
       expires_at: session.expires_at,
-      letter_id: consumed.letter_id,
+      letter_id: validated.letter_id,
       public_letter_id:
         (letter as { public_letter_id?: string } | null)?.public_letter_id ??
         null,
