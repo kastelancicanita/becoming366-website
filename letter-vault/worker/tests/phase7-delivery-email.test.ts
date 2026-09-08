@@ -70,6 +70,17 @@ describe("recurring initialization", () => {
   });
 });
 
+describe("management request letter lookup", () => {
+  it("treats LV- public ids as non-uuid (avoids invalid uuid query)", () => {
+    const looksLikeLetterUuid = (value: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value,
+      );
+    expect(looksLikeLetterUuid("LV-A2696ADB")).toBe(false);
+    expect(looksLikeLetterUuid("a2696adb-ffaf-42c5-a2e5-8d1748d75fad")).toBe(true);
+  });
+});
+
 describe("fixed milestones preserved", () => {
   const now = new Date("2026-09-08T12:00:00.000Z");
 

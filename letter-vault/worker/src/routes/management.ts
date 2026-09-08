@@ -56,6 +56,12 @@ function managementBaseUrl(request: Request): string {
   return `${url.protocol}//${url.host}`;
 }
 
+function looksLikeLetterUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
 async function guardManagementAttempt(
   request: Request,
   env: Env,
@@ -110,13 +116,12 @@ export async function handleManagementRequest(
   }
 
   try {
-    let letter = await findLetterByIdAndPurchaser(
-      env,
-      letterId,
-      purchaserEmail,
-    );
+    let letter: Awaited<ReturnType<typeof findLetterByPublicIdAndPurchaser>> = null;
 
-    if (!letter && letterId.startsWith("LV-")) {
+    if (looksLikeLetterUuid(letterId)) {
+      letter = await findLetterByIdAndPurchaser(env, letterId, purchaserEmail);
+    }
+    if (!letter && letterId.toUpperCase().startsWith("LV-")) {
       letter = await findLetterByPublicIdAndPurchaser(
         env,
         letterId,
