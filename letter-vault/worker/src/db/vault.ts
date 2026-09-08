@@ -225,37 +225,15 @@ export async function fetchSlotsForEntitlement(
   const letterFields =
     "id, slot_id, public_letter_id, recipient_email, delivery_email_verified_at, delivery_email_mode";
 
-  const letterIds = slots
-    .map((s) => s.letter_id)
-    .filter((id): id is string => Boolean(id));
+  const { data: entitlementLetters, error: entitlementLetterErr } = await client(env)
+    .from("letter_vault_letters")
+    .select(letterFields)
+    .eq("entitlement_ref", entitlementId);
 
-  const orphanSlotIds = slots
-    .filter((s) => s.slot_status === "SEALED" && !s.letter_id)
-    .map((s) => s.id);
+  if (entitlementLetterErr) throw new Error(entitlementLetterErr.message);
 
-  if (letterIds.length === 0 && orphanSlotIds.length === 0) return slots;
-
-  const letters: LetterMeta[] = [];
-
-  if (letterIds.length > 0) {
-    const { data, error: letterErr } = await client(env)
-      .from("letter_vault_letters")
-      .select(letterFields)
-      .in("id", letterIds);
-    if (letterErr) throw new Error(letterErr.message);
-    letters.push(...((data as LetterMeta[]) ?? []));
-  }
-
-  if (orphanSlotIds.length > 0) {
-    const { data, error: slotErr } = await client(env)
-      .from("letter_vault_letters")
-      .select(letterFields)
-      .in("slot_id", orphanSlotIds);
-    if (slotErr) throw new Error(slotErr.message);
-    for (const row of (data as LetterMeta[]) ?? []) {
-      if (!letters.some((l) => l.id === row.id)) letters.push(row);
-    }
-  }
+  const letters = (entitlementLetters as LetterMeta[]) ?? [];
+  if (letters.length === 0) return slots;
 
   const letterById = new Map(letters.map((l) => [l.id, l]));
   const letterBySlotId = new Map(
