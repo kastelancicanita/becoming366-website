@@ -213,33 +213,62 @@ export async function fetchSlotsForEntitlement(
   const slots = (data as SlotRow[]) ?? [];
   if (slots.length === 0) return slots;
 
+  type LetterMeta = {
+    id: string;
+    slot_id: string | null;
+    public_letter_id: string;
+    recipient_email: string | null;
+    delivery_email_verified_at: string | null;
+    delivery_email_mode: string | null;
+  };
+
+  const letterFields =
+    "id, slot_id, public_letter_id, recipient_email, delivery_email_verified_at, delivery_email_mode";
+
   const letterIds = slots
     .map((s) => s.letter_id)
     .filter((id): id is string => Boolean(id));
 
-  if (letterIds.length === 0) return slots;
+  const orphanSlotIds = slots
+    .filter((s) => s.slot_status === "SEALED" && !s.letter_id)
+    .map((s) => s.id);
 
-  const { data: letters } = await client(env)
-    .from("letter_vault_letters")
-    .select(
-      "id, public_letter_id, recipient_email, delivery_email_verified_at, delivery_email_mode",
-    )
-    .in("id", letterIds);
+  if (letterIds.length === 0 && orphanSlotIds.length === 0) return slots;
 
-  const letterMap = new Map(
-    (letters ?? []).map(
-      (l: {
-        id: string;
-        public_letter_id: string;
-        recipient_email: string | null;
-        delivery_email_verified_at: string | null;
-        delivery_email_mode: string | null;
-      }) => [l.id, l],
-    ),
+  const letters: LetterMeta[] = [];
+
+  if (letterIds.length > 0) {
+    const { data, error: letterErr } = await client(env)
+      .from("letter_vault_letters")
+      .select(letterFields)
+      .in("id", letterIds);
+    if (letterErr) throw new Error(letterErr.message);
+    letters.push(...((data as LetterMeta[]) ?? []));
+  }
+
+  if (orphanSlotIds.length > 0) {
+    const { data, error: slotErr } = await client(env)
+      .from("letter_vault_letters")
+      .select(letterFields)
+      .in("slot_id", orphanSlotIds);
+    if (slotErr) throw new Error(slotErr.message);
+    for (const row of (data as LetterMeta[]) ?? []) {
+      if (!letters.some((l) => l.id === row.id)) letters.push(row);
+    }
+  }
+
+  const letterById = new Map(letters.map((l) => [l.id, l]));
+  const letterBySlotId = new Map(
+    letters
+      .filter((l): l is LetterMeta & { slot_id: string } => Boolean(l.slot_id))
+      .map((l) => [l.slot_id, l]),
   );
 
   return slots.map((s) => {
-    const letter = s.letter_id ? letterMap.get(s.letter_id) : null;
+    const letter =
+      (s.letter_id ? letterById.get(s.letter_id) : null) ??
+      letterBySlotId.get(s.id) ??
+      null;
     return {
       ...s,
       public_letter_id: s.letter_id ? letter?.public_letter_id ?? null : null,
