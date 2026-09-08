@@ -44,6 +44,52 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const MGMT_STORE_KEY = "lv_mgmt_session_v1";
+
+  function persistMgmtSession() {
+    if (!mgmt.session) return;
+    try {
+      sessionStorage.setItem(
+        MGMT_STORE_KEY,
+        JSON.stringify({ session: mgmt.session, letterId: mgmt.letterId }),
+      );
+    } catch (_) {
+      /* private browsing / quota */
+    }
+  }
+
+  function restoreMgmtSession() {
+    if (mgmt.session) return;
+    try {
+      const raw = sessionStorage.getItem(MGMT_STORE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data && typeof data.session === "string" && data.session) {
+        mgmt.session = data.session;
+        mgmt.letterId = data.letterId || null;
+      }
+    } catch (_) {
+      /* corrupt storage */
+    }
+  }
+
+  function clearMgmtSession() {
+    mgmt.session = null;
+    mgmt.letterId = null;
+    mgmt.metadata = null;
+    try {
+      sessionStorage.removeItem(MGMT_STORE_KEY);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function canReuseMgmtSession(letterId) {
+    if (!mgmt.session) return false;
+    if (!mgmt.letterId) return true;
+    return mgmt.letterId.toUpperCase() === letterId.toUpperCase();
+  }
+
   function deliveryEmailLabel(slot) {
     if (!slot || slot.slot_status !== "SEALED") return "";
     if (slot.delivery_email_pending_verification) {
@@ -85,9 +131,18 @@
       });
     },
 
-    requestSecureLink: function (letterId) {
+    requestSecureLink: async function (letterId) {
       const lid = letterId || $("success-letter-id")?.textContent?.trim();
       if (!lid) return;
+      restoreMgmtSession();
+      if (canReuseMgmtSession(lid)) {
+        mgmt.letterId = lid;
+        await LvManage.openManagementSession();
+        return;
+      }
+      if (mgmt.session) {
+        clearMgmtSession();
+      }
       $("manage-letter-id").value = lid;
       if (window.LvVaultState?.purchaserEmail) {
         $("manage-email").value = window.LvVaultState.purchaserEmail;
@@ -121,6 +176,7 @@
       if (!session) return false;
       mgmt.session = session;
       mgmt.letterId = params.get("letter_id");
+      persistMgmtSession();
       window.history.replaceState({}, "", window.location.pathname);
       LvManage.openManagementSession();
       return true;
@@ -148,6 +204,7 @@
       }
       mgmt.session = json.session_token;
       mgmt.letterId = json.public_letter_id || null;
+      persistMgmtSession();
       LvManage.openManagementSession();
     },
 
@@ -155,6 +212,7 @@
       showMgmtError("");
       const res = await mgmtApi("/v1/staging/management/session");
       if (res.status !== 200 || res.json.status !== "ok") {
+        clearMgmtSession();
         showMgmtError("This secure link has expired. Request a new one from Manage my Vault.");
         showStep("step-manage-entry");
         return;
@@ -179,6 +237,7 @@
       mgmt.selectedMode = null;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
       $("btn-save-delivery-email").disabled = true;
+      persistMgmtSession();
       showStep("step-manage-delivery");
     },
 

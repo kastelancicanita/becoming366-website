@@ -143,7 +143,9 @@
         "<span class='progress-label'>Step " +
         (idx + 1) +
         " of 4</span>" +
-        "<span class='progress-steps'>Recipient ┬╖ Date ┬╖ Write ┬╖ Seal</span>";
+        "<span class='progress-steps'>" +
+        "<span>Recipient</span><span>Date</span><span>Write</span><span>Seal</span>" +
+        "</span>";
       return;
     }
     if (state.flowMode === "collection-write" && (stepId === "step-write" || stepId === "step-review")) {
