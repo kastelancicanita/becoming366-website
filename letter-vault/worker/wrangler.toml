@@ -1,0 +1,35 @@
+# Letter Vault API — Cloudflare Worker
+# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "letter-vault-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Local `wrangler dev` defaults
+[vars]
+VAULT_ENV = "development"
+
+# --- Development (deployed dev worker) ---
+[env.development]
+name = "letter-vault-api-dev"
+vars = { VAULT_ENV = "development" }
+
+# --- Staging ---
+[env.staging]
+name = "letter-vault-api-staging"
+vars = { VAULT_ENV = "staging" }
+
+[env.staging.triggers]
+crons = ["* * * * *"]
+
+# Secrets (set per environment, never in this file):
+#   wrangler secret put SUPABASE_URL --env staging
+#   wrangler secret put SUPABASE_SERVICE_ROLE_KEY --env staging
+#   wrangler secret put LETTER_VAULT_MASTER_KEY_V1 --env staging
+#   wrangler secret put LETTER_VAULT_STAGING_ADMIN_TOKEN --env staging
+#   wrangler secret put RESEND_API_KEY --env staging
+#   wrangler secret put RESEND_WEBHOOK_SECRET --env staging
+
+# Optional custom route after DNS setup (Phase 2+):
+# [env.staging]
+# routes = [{ pattern = "api.becoming366.com/v1/*", zone_name = "becoming366.com" }]

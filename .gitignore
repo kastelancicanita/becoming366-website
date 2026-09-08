@@ -1,0 +1,13 @@
+# Letter Vault — local secrets (never commit)
+letter-vault/worker/.dev.vars
+letter-vault/worker/.wrangler/
+letter-vault/worker/node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db

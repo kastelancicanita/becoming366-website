@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Letter Vault · Becoming 366</title>
+  <meta name="description" content="Write today. Deliver someday. The Letter Vault by Becoming 366.">
+  <meta name="theme-color" content="#faf7f2">
+  <link rel="stylesheet" href="css/vault.css">
+</head>
+<body>
+  <div class="vault-wrap">
+    <header class="vault-brand">
+      <h1>The Letter Vault</h1>
+      <p class="vault-tagline">Write today. Deliver someday.</p>
+    </header>
+
+    <p class="vault-intro" id="intro-copy">
+      You're about to write something that won't arrive today.<br>
+      Choose the moment. Write the words. Seal the letter.<br>
+      We'll keep it safe until the day you chose.
+    </p>
+
+    <div id="vault-error" class="vault-error" hidden role="alert"></div>
+    <div id="vault-progress" class="vault-progress" hidden aria-live="polite"></div>
+
+    <main class="vault-card">
+      <!-- ENTRY -->
+      <section class="vault-step active" id="step-entry" aria-labelledby="entry-heading">
+        <h2 id="entry-heading">Enter your Vault</h2>
+        <form id="form-entry" novalidate>
+          <label for="access-code">Access code</label>
+          <input type="text" id="access-code" name="access_code" autocomplete="off" required>
+          <label for="purchase-email">Email used for your purchase</label>
+          <input type="email" id="purchase-email" name="purchaser_email" autocomplete="email" required>
+          <button type="submit" class="btn">ENTER THE VAULT →</button>
+        </form>
+        <p class="vault-footer" style="margin-top:16px;font-size:0.85rem;">
+          Your access code is included with your purchase.<br>
+          One purchase unlocks the Letter Vault product included with that purchase.
+        </p>
+        <p class="vault-footer">
+          <button type="button" class="link-btn" id="go-manage">Already sealed a letter or started a collection? Manage my Vault →</button>
+        </p>
+      </section>
+
+      <!-- MANAGE ENTRY -->
+      <section class="vault-step" id="step-manage-entry" aria-labelledby="manage-heading">
+        <h2 id="manage-heading">Manage my Vault</h2>
+        <p class="vault-sub">Need to add or change where a letter will be delivered, or continue an unfinished collection? You can do that here.</p>
+        <form id="form-manage" novalidate>
+          <label for="manage-letter-id">Letter ID</label>
+          <input type="text" id="manage-letter-id" name="letter_id" placeholder="LV-XXXXXXXX" required>
+          <label for="manage-email">Email used for your purchase</label>
+          <input type="email" id="manage-email" name="purchaser_email" required>
+          <button type="submit" class="btn">SEND ME A SECURE LINK →</button>
+        </form>
+        <p class="vault-footer"><button type="button" class="link-btn" id="back-entry">← Back to Vault entry</button></p>
+      </section>
+
+      <!-- COLLECTION INIT -->
+      <section class="vault-step" id="step-collection-init" aria-labelledby="coll-init-heading">
+        <h2 id="coll-init-heading">Your Letter Collection 💌</h2>
+        <p class="vault-sub" id="collection-title-display"></p>
+        <p class="vault-sub" id="collection-init-copy"></p>
+        <div id="collection-init-fields"></div>
+        <button type="button" class="btn" id="btn-collection-init">CREATE MY COLLECTION</button>
+      </section>
+
+      <!-- COLLECTION VIEW -->
+      <section class="vault-step" id="step-collection" aria-labelledby="coll-heading">
+        <h2 id="coll-heading">Your Letter Collection 💌</h2>
+        <p class="vault-sub" id="collection-subtitle"></p>
+        <p class="vault-sub" id="collection-progress"></p>
+        <ul class="slot-list" id="slot-list"></ul>
+        <p class="vault-sub" id="collection-emotional" hidden></p>
+      </section>
+
+      <!-- RECIPIENT -->
+      <section class="vault-step" id="step-recipient" aria-labelledby="recipient-heading">
+        <h2 id="recipient-heading">Who is this letter for?</h2>
+        <p class="vault-sub">Some words are meant for today. Others are meant to wait.</p>
+        <div class="choice-grid" id="recipient-choices"></div>
+        <div id="someone-else-fields" hidden>
+          <label for="custom-relationship">Who is this person to you?</label>
+          <input type="text" id="custom-relationship" placeholder="Sister, Granddaughter, Dad">
+        </div>
+      </section>
+
+      <!-- DATE -->
+      <section class="vault-step" id="step-date" aria-labelledby="date-heading">
+        <h2 id="date-heading">When should this letter arrive?</h2>
+        <p class="vault-sub">Choose a day that means something — or simply let time do its thing.</p>
+        <div class="choice-grid" id="date-choices"></div>
+        <div id="date-extra" hidden></div>
+        <div id="date-confirm-panel" class="date-confirm-panel" hidden>
+          <p class="date-confirm-label">This letter will arrive</p>
+          <p class="date-confirm-value" id="confirm-date-display"></p>
+          <p class="vault-hint" id="confirm-date-sub"></p>
+        </div>
+        <button type="button" class="btn" id="btn-confirm-date" hidden>CONFIRM THIS DATE →</button>
+      </section>
+
+      <!-- WRITE -->
+      <section class="vault-step" id="step-write" aria-labelledby="write-heading">
+        <h2 id="write-heading">Write what you want them to find someday.</h2>
+        <p class="vault-sub" id="write-delivery-note"></p>
+        <p class="vault-draft-note" id="draft-saved" hidden>Saved on this device ✓</p>
+        <label for="dear-line">Dear ________,</label>
+        <input type="text" id="dear-line" placeholder="(optional)">
+        <label for="letter-body" class="visually-hidden">Letter body</label>
+        <textarea class="letter-paper" id="letter-body" maxlength="150000" placeholder="Begin writing…"></textarea>
+        <p class="vault-char-count"><span id="char-count">0</span> / 15,000 · Your letter can be written in any language.</p>
+        <p class="vault-privacy">Your sealed letter is encrypted, never displayed in our admin dashboard, and automatically accessed only when it's time for delivery.</p>
+        <button type="button" class="link-btn" id="toggle-prompts">Not sure where to begin?</button>
+        <div id="write-prompts" hidden style="margin:12px 0;font-size:0.9rem;color:var(--charcoal-soft);">
+          <p>What do you hope they remember about this time?</p>
+          <p>What do you want them to know about you today?</p>
+          <p>What do you hope life looks like when they read this?</p>
+        </div>
+        <button type="button" class="btn" id="btn-to-review">Continue to seal →</button>
+      </section>
+
+      <!-- REVIEW -->
+      <section class="vault-step" id="step-review" aria-labelledby="review-heading">
+        <h2 id="review-heading">Ready to seal it?</h2>
+        <p class="vault-sub">Once you seal this letter, you won't be able to open it again.</p>
+        <div id="review-meta"></div>
+        <p class="vault-sub">This is your last chance to make changes.</p>
+        <label class="checkbox-row">
+          <input type="checkbox" id="seal-understand">
+          <span>I understand that once sealed, I won't be able to read or edit this letter.</span>
+        </label>
+        <p class="vault-sub" style="font-style:italic;">Take one last moment. These words are about to leave today behind.</p>
+        <button type="button" class="btn" id="btn-seal" disabled>SEAL MY LETTER 🔒</button>
+        <button type="button" class="btn btn-secondary" id="btn-back-write">Back to my letter</button>
+      </section>
+
+      <!-- SUCCESS -->
+      <section class="vault-step" id="step-success" aria-labelledby="success-heading">
+        <h2 id="success-heading">It's sealed. 🔒</h2>
+        <p class="vault-sub">Your letter is no longer part of today.</p>
+        <p class="vault-sub">We'll keep it safe until</p>
+        <p class="vault-success-date" id="success-date"></p>
+        <p class="vault-sub" style="text-align:center;">Now forget about it.<br>We'll remember.</p>
+        <p><strong>Your Letter ID</strong><br><span id="success-letter-id" style="font-family:var(--font-serif);font-size:1.25rem;"></span></p>
+        <button type="button" class="btn btn-secondary" id="btn-copy-id">COPY LETTER ID</button>
+        <div class="success-delivery-email" id="success-email-block">
+          <p class="success-email-label">Delivery email</p>
+          <p class="success-email-status">Not added yet</p>
+          <p class="success-email-note">That's okay. You can add it securely whenever you're ready.</p>
+        </div>
+        <p class="vault-sub">Check your inbox 💌<br>We've sent your seal confirmation and Letter ID to your purchase email.</p>
+        <p class="vault-footer">You wrote it. You sealed it. We'll take it from here.<br><em>Becoming 366</em></p>
+        <button type="button" class="btn" id="btn-return-collection" hidden>RETURN TO MY COLLECTION →</button>
+      </section>
+
+      <!-- MANAGE SUCCESS REQUEST -->
+      <section class="vault-step" id="step-manage-sent" aria-labelledby="manage-sent-heading">
+        <h2 id="manage-sent-heading">Check your inbox 💌</h2>
+        <p class="vault-sub">If those details match a Letter Vault item, we've sent you a secure link to manage it.</p>
+        <button type="button" class="link-btn" id="manage-sent-back">← Back</button>
+      </section>
+    </main>
+
+    <footer class="vault-footer">
+      <p>The Letter Vault · <a href="../index.html">Becoming 366</a></p>
+    </footer>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/draft.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
