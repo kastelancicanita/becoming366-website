@@ -137,7 +137,7 @@ export async function getLetterManagementMetadata(
   const { data, error } = await client(env)
     .from("letter_vault_letters")
     .select(
-      "id, purchaser_email, recipient_email, delivery_at, delivery_timezone, status, delivery_email_verified_at, sent_at, created_at",
+      "id, purchaser_email, recipient_email, delivery_at, delivery_timezone, status, delivery_email_verified_at, delivery_email_mode, sent_at, created_at",
     )
     .eq("id", letterId)
     .maybeSingle();
@@ -154,6 +154,7 @@ export async function getLetterManagementMetadata(
       ? maskEmail(data.recipient_email)
       : null,
     delivery_email_verified: Boolean(data.delivery_email_verified_at),
+    delivery_email_mode: data.delivery_email_mode ?? null,
     has_delivery_email: Boolean(data.recipient_email),
     letter_body_in_response: false,
   };
@@ -232,6 +233,7 @@ export async function verifyDeliveryEmailChange(
     .from("letter_vault_letters")
     .update({
       recipient_email: activated.new_email,
+      delivery_email_mode: "verified",
       delivery_email_verified_at: now,
       status: "SEALED",
       updated_at: now,
@@ -240,6 +242,26 @@ export async function verifyDeliveryEmailChange(
 
   await auditDeliveryEmail(env, activated.letter_id, "delivery_email_activated", activated.new_email);
   return activated;
+}
+
+export async function activateSurpriseDeliveryEmail(
+  env: Env,
+  letterId: string,
+  newEmail: string,
+): Promise<void> {
+  const now = new Date().toISOString();
+  await client(env)
+    .from("letter_vault_letters")
+    .update({
+      recipient_email: newEmail,
+      delivery_email_mode: "surprise",
+      delivery_email_verified_at: null,
+      status: "SEALED",
+      updated_at: now,
+    })
+    .eq("id", letterId);
+
+  await auditDeliveryEmail(env, letterId, "delivery_email_surprise_set", newEmail);
 }
 
 export async function auditDeliveryEmail(

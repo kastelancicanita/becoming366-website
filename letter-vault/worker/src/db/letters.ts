@@ -15,6 +15,7 @@ export interface LetterRow {
   delivery_timezone: string;
   status: LetterStatus;
   delivery_email_verified_at: string | null;
+  delivery_email_mode?: string | null;
   ciphertext_b64: string;
   ciphertext_nonce_b64: string;
   wrapped_dek_b64: string;
@@ -68,10 +69,23 @@ function client(env: Env) {
   });
 }
 
-export function hasVerifiedDeliveryEmail(letter: LetterRow): boolean {
-  return Boolean(
-    letter.recipient_email && letter.delivery_email_verified_at,
-  );
+export function hasVerifiedDeliveryEmail(letter: {
+  recipient_email: string | null;
+  delivery_email_verified_at: string | null;
+  delivery_email_mode?: string | null;
+}): boolean {
+  return canDeliverToRecipient(letter);
+}
+
+/** Surprise mode: address stored, no recipient verification before delivery day. */
+export function canDeliverToRecipient(letter: {
+  recipient_email: string | null;
+  delivery_email_verified_at: string | null;
+  delivery_email_mode?: string | null;
+}): boolean {
+  if (!letter.recipient_email) return false;
+  if (letter.delivery_email_mode === "surprise") return true;
+  return Boolean(letter.delivery_email_verified_at);
 }
 
 export async function insertSealedLetter(

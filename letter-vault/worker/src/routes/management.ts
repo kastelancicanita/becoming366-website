@@ -1,6 +1,7 @@
-import { generateSecureToken } from "../crypto/management-token";
+import { generateSecureToken, maskEmail } from "../crypto/management-token";
 import {
   auditDeliveryEmail,
+  activateSurpriseDeliveryEmail,
   consumeManagementToken,
   createDeliveryEmailChange,
   createManagementSession,
@@ -217,24 +218,22 @@ export async function handleManagementActivateGet(
   const payload = (await sessionResult.json()) as {
     session_token?: string;
     expires_at?: string;
+    letter_id?: string;
+    public_letter_id?: string;
   };
 
-  const html = `<!DOCTYPE html><html lang="en"><body style="font-family:Georgia,serif;max-width:560px;margin:40px auto;padding:24px;">
-    <p>Your letter management session is active.</p>
-    <p style="color:#666;font-size:14px;">No letter content is shown here. Use your management tools to update delivery settings.</p>
-    <p style="color:#888;font-size:12px;">Session expires ${payload.expires_at ?? "soon"}.</p>
-  </body></html>`;
-
-  const headers: Record<string, string> = {
-    "Content-Type": "text/html; charset=utf-8",
-    "Cache-Control": "no-store",
-  };
+  const uiBase =
+    env.LETTER_VAULT_UI_BASE_URL?.replace(/\/$/, "") ??
+    "https://becoming366-website.pages.dev";
+  const redirectUrl = new URL(`${uiBase}/letter-vault/index.html`);
   if (payload.session_token) {
-    headers["Set-Cookie"] =
-      `lv_mgmt_session=${payload.session_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=1800`;
+    redirectUrl.searchParams.set("management_session", payload.session_token);
+  }
+  if (payload.public_letter_id) {
+    redirectUrl.searchParams.set("letter_id", payload.public_letter_id);
   }
 
-  return new Response(html, { status: 200, headers });
+  return Response.redirect(redirectUrl.toString(), 302);
 }
 
 async function activateTokenAndCreateSession(
@@ -252,11 +251,17 @@ async function activateTokenAndCreateSession(
       rawSession,
     );
 
+    const letter = await fetchLetterById(env, consumed.letter_id);
+
     return jsonResponse({
       status: "ok",
       phase: "phase6",
       session_token: session.session_token,
       expires_at: session.expires_at,
+      letter_id: consumed.letter_id,
+      public_letter_id:
+        (letter as { public_letter_id?: string } | null)?.public_letter_id ??
+        null,
       letter_body_in_response: false,
     });
   } catch {
@@ -313,7 +318,10 @@ export async function handleDeliveryEmailChangeRequest(
   const rawSession = sessionFromRequest(request);
   if (!rawSession) return managementDeniedResponse();
 
-  let body: { new_delivery_email?: string };
+  let body: {
+    new_delivery_email?: string;
+    delivery_email_mode?: "surprise" | "verify_now";
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -342,7 +350,24 @@ export async function handleDeliveryEmailChangeRequest(
         phase: "phase6",
         message: "This delivery email is already active.",
         pending_verification: false,
-        active_delivery_email_masked: null,
+        active_delivery_email_masked: maskEmail(newEmail),
+        delivery_email_mode: letter.delivery_email_mode ?? "verified",
+      });
+    }
+
+    const mode = body.delivery_email_mode === "surprise" ? "surprise" : "verify_now";
+
+    if (mode === "surprise") {
+      await activateSurpriseDeliveryEmail(env, letter.id, newEmail);
+      return jsonResponse({
+        status: "ok",
+        phase: "phase6",
+        message:
+          "Delivery email saved. The recipient will not be contacted until delivery day.",
+        pending_verification: false,
+        delivery_email_mode: "surprise",
+        active_delivery_email_masked: maskEmail(newEmail),
+        letter_body_in_response: false,
       });
     }
 
@@ -373,10 +398,9 @@ export async function handleDeliveryEmailChangeRequest(
         "Verification sent to the new address. The current delivery email remains active until verification succeeds.",
       pending_verification: true,
       active_delivery_email_masked: letter.recipient_email
-        ? (await import("../crypto/management-token")).maskEmail(
-            letter.recipient_email,
-          )
+        ? maskEmail(letter.recipient_email)
         : null,
+      delivery_email_mode: "verified",
       letter_body_in_response: false,
     });
   } catch {

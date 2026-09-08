@@ -25,6 +25,7 @@ import type { Env } from "../env";
 import {
   generateCollectionSlots,
   listFutureValidMilestoneOptions,
+  previewRecurringSlots,
   supportedMilestoneAges,
   validateLetterLength,
   validateMilestoneSelection,
@@ -162,6 +163,10 @@ function publicSlotView(slot: {
   slot_status: string;
   recipient_context: Record<string, unknown> | null;
   public_letter_id?: string | null;
+  delivery_email_masked?: string | null;
+  has_delivery_email?: boolean;
+  delivery_email_mode?: string | null;
+  delivery_email_pending_verification?: boolean;
 }) {
   return {
     slot_id: slot.id,
@@ -171,6 +176,11 @@ function publicSlotView(slot: {
     slot_status: slot.slot_status,
     recipient_context: slot.recipient_context,
     public_letter_id: slot.public_letter_id ?? null,
+    delivery_email_masked: slot.delivery_email_masked ?? null,
+    has_delivery_email: slot.has_delivery_email ?? false,
+    delivery_email_mode: slot.delivery_email_mode ?? null,
+    delivery_email_pending_verification:
+      slot.delivery_email_pending_verification ?? false,
     letter_body_in_response: false,
   };
 }
@@ -263,6 +273,56 @@ export async function handleVaultCollectionMilestoneOptions(
   }
 }
 
+/** POST /v1/vault/collection/recurring-preview — preview dates from customer base date */
+export async function handleVaultCollectionRecurringPreview(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const blocked = stagingOnlyResponse(env);
+  if (blocked) return blocked;
+
+  const session = await requireVaultSession(request, env);
+  if (session instanceof Response) return session;
+
+  let body: { base_date?: string };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return jsonResponse({ status: "error", message: "Invalid request." }, 400);
+  }
+
+  const baseDate = body.base_date?.slice(0, 10);
+  if (!baseDate) {
+    return jsonResponse({
+      status: "error",
+      message: "Please enter your anniversary or birthday date.",
+    }, 400);
+  }
+
+  try {
+    const row = await fetchEntitlementProduct(env, session.entitlement_id);
+    if (!row || row.collection_mechanism !== "RECURRING") {
+      return jsonResponse(VAULT_DENIED, 401);
+    }
+
+    const config = (row.template_config as TemplateConfig) ?? undefined;
+    const previews = previewRecurringSlots(
+      baseDate,
+      row.letters_allowed,
+      config,
+    );
+
+    return jsonResponse({
+      status: "ok",
+      phase: "phase7",
+      preview_slots: previews,
+      letters_count: row.letters_allowed,
+    });
+  } catch {
+    return jsonResponse({ status: "error", message: "Could not preview dates." }, 500);
+  }
+}
+
 /** POST /v1/vault/collection/init */
 export async function handleVaultCollectionInit(
   request: Request,
@@ -314,6 +374,16 @@ export async function handleVaultCollectionInit(
       | "FREE_COLLECTION";
 
     const templateConfig = (row.template_config as TemplateConfig) ?? undefined;
+
+    if (mechanism === "RECURRING") {
+      const baseDate = body.base_date?.slice(0, 10);
+      if (!baseDate) {
+        return jsonResponse({
+          status: "error",
+          message: "Please enter your anniversary or birthday date.",
+        }, 400);
+      }
+    }
 
     if (mechanism === "FIXED_MILESTONES") {
       const baseDate = body.base_date?.slice(0, 10);

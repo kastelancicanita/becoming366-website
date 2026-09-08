@@ -43,6 +43,7 @@ import {
 import {
   handleVaultCollectionInit,
   handleVaultCollectionMilestoneOptions,
+  handleVaultCollectionRecurringPreview,
   handleVaultEnter,
   handleVaultSinglePrepare,
   handleVaultSlotSeal,
@@ -276,6 +277,12 @@ const worker = {
       request.method === "POST"
     ) {
       return respond(handleVaultCollectionMilestoneOptions(request, env));
+    }
+    if (
+      pathname === "/v1/vault/collection/recurring-preview" &&
+      request.method === "POST"
+    ) {
+      return respond(handleVaultCollectionRecurringPreview(request, env));
     }
     if (pathname === "/v1/vault/single/prepare" && request.method === "POST") {
       return respond(handleVaultSinglePrepare(request, env));

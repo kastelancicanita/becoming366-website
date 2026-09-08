@@ -163,6 +163,36 @@ body {
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--charcoal-soft);
+  display: block;
+}
+
+.slot-sealed-wrap {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.slot-delivery-email {
+  font-size: 0.8rem;
+  color: var(--charcoal-soft);
+  margin: 6px 0 4px;
+}
+
+.recurring-preview-list {
+  list-style: none;
+  margin: 12px 0 16px;
+  padding: 16px;
+  background: var(--cream);
+  border-radius: 8px;
+  font-family: var(--font-serif);
+}
+
+.recurring-preview-list li {
+  padding: 4px 0;
+}
+
+.delivery-email-action {
+  display: inline-block;
+  margin-top: 8px;
 }
 
 .vault-sub {

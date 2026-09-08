@@ -223,6 +223,27 @@ export function generateFixedMilestoneSlotsFromSelection(
   });
 }
 
+export function previewRecurringSlots(
+  baseDateIso: string,
+  count: number,
+  config?: TemplateConfig,
+  now = new Date(),
+): MilestoneOption[] {
+  const drafts = generateRecurringSlots(
+    baseDateIso,
+    count,
+    undefined,
+    config,
+    now,
+  );
+  return drafts.map((s) => ({
+    age: s.slot_index,
+    moment_label: s.moment_label,
+    delivery_at: s.delivery_at!,
+    delivery_written: formatWrittenDate(s.delivery_at!),
+  }));
+}
+
 /** Next N future anniversary/birthday occurrences from base month/day. */
 export function generateRecurringSlots(
   baseDateIso: string,

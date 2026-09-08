@@ -14,6 +14,8 @@ export interface Env {
   RESEND_API_KEY?: string;
   /** Resend webhook signing secret (whsec_...) — Cloudflare secret only. */
   RESEND_WEBHOOK_SECRET?: string;
+  /** Staging preview UI base for management magic-link redirects (no trailing slash). */
+  LETTER_VAULT_UI_BASE_URL?: string;
 }
 
 export type VaultEnvironment = "development" | "staging" | "production";

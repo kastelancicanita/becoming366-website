@@ -60,7 +60,7 @@
 
       <!-- COLLECTION INIT -->
       <section class="vault-step" id="step-collection-init" aria-labelledby="coll-init-heading">
-        <h2 id="coll-init-heading">Your Letter Collection 💌</h2>
+        <h2 id="coll-init-heading">Your Letter Collection</h2>
         <p class="vault-sub" id="collection-title-display"></p>
         <p class="vault-sub" id="collection-init-copy"></p>
         <div id="collection-init-fields"></div>
@@ -69,7 +69,7 @@
 
       <!-- COLLECTION VIEW -->
       <section class="vault-step" id="step-collection" aria-labelledby="coll-heading">
-        <h2 id="coll-heading">Your Letter Collection 💌</h2>
+        <h2 id="coll-heading">Your Letter Collection</h2>
         <p class="vault-sub" id="collection-subtitle"></p>
         <p class="vault-sub" id="collection-progress"></p>
         <ul class="slot-list" id="slot-list"></ul>
@@ -150,16 +150,48 @@
           <p class="success-email-status">Not added yet</p>
           <p class="success-email-note">That's okay. You can add it securely whenever you're ready.</p>
         </div>
-        <p class="vault-sub">Check your inbox 💌<br>We've sent your seal confirmation and Letter ID to your purchase email.</p>
+        <p class="vault-sub">Check your inbox<br>We've sent your seal confirmation and Letter ID to your purchase email.</p>
         <p class="vault-footer">You wrote it. You sealed it. We'll take it from here.<br><em>Becoming 366</em></p>
         <button type="button" class="btn" id="btn-return-collection" hidden>RETURN TO MY COLLECTION →</button>
       </section>
 
       <!-- MANAGE SUCCESS REQUEST -->
       <section class="vault-step" id="step-manage-sent" aria-labelledby="manage-sent-heading">
-        <h2 id="manage-sent-heading">Check your inbox 💌</h2>
+        <h2 id="manage-sent-heading">Check your inbox</h2>
         <p class="vault-sub">If those details match a Letter Vault item, we've sent you a secure link to manage it.</p>
+        <p class="vault-hint">Letter ID: <span id="manage-request-letter-id"></span></p>
         <button type="button" class="link-btn" id="manage-sent-back">← Back</button>
+      </section>
+
+      <!-- MANAGE DELIVERY EMAIL (authenticated session) -->
+      <section class="vault-step" id="step-manage-delivery" aria-labelledby="manage-delivery-heading">
+        <h2 id="manage-delivery-heading">Delivery email</h2>
+        <p class="vault-sub">Add or change where this letter will be delivered. Your letter stays sealed.</p>
+        <div id="mgmt-error" class="vault-error" hidden role="alert"></div>
+        <div id="mgmt-letter-summary" class="vault-sub"></div>
+        <label for="mgmt-delivery-email">Delivery email address</label>
+        <input type="email" id="mgmt-delivery-email" autocomplete="email" placeholder="recipient@example.com">
+        <p class="vault-sub" style="margin-top:20px;">How should we handle this address?</p>
+        <div class="choice-grid">
+          <button type="button" class="choice-btn mgmt-mode-btn" id="btn-manage-mode-surprise">
+            <span class="choice-label">KEEP IT A SURPRISE</span>
+            <span class="choice-hint">No message will be sent to this address now. The recipient will hear from The Letter Vault only when the letter is delivered.</span>
+          </button>
+          <button type="button" class="choice-btn mgmt-mode-btn" id="btn-manage-mode-verify">
+            <span class="choice-label">VERIFY THE ADDRESS NOW</span>
+            <span class="choice-hint">Send a simple verification email to this address now. Best when the recipient knows about the letter.</span>
+          </button>
+        </div>
+        <button type="button" class="btn" id="btn-save-delivery-email" disabled>SAVE DELIVERY EMAIL →</button>
+        <p class="vault-footer"><button type="button" class="link-btn" id="manage-delivery-back">← Back</button></p>
+      </section>
+
+      <!-- MANAGE DONE -->
+      <section class="vault-step" id="step-manage-done" aria-labelledby="manage-done-heading">
+        <h2 id="manage-done-heading">Saved</h2>
+        <p class="vault-sub" id="mgmt-result-copy"></p>
+        <p class="vault-hint" id="mgmt-result-detail"></p>
+        <button type="button" class="btn" id="btn-manage-done">BACK TO THE VAULT →</button>
       </section>
     </main>
 
@@ -170,6 +202,7 @@
 
   <script src="js/config.js"></script>
   <script src="js/draft.js"></script>
+  <script src="js/manage.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -20,8 +20,11 @@
     lettersAllowed: null,
     selectedMilestoneAges: [],
     milestoneOptions: [],
+    purchaserEmail: null,
     recipientLocked: false,
   };
+
+  window.LvVaultState = state;
 
   const RECIPIENTS = [
     { label: "Myself", hint: "A letter for your future self." },
@@ -218,6 +221,7 @@
       lettersAllowed: res.json.letters_allowed || null,
       selectedMilestoneAges: [],
       milestoneOptions: [],
+      purchaserEmail: $("purchase-email").value.trim(),
     });
 
     const firstRecipient = (res.json.slots || []).find(
@@ -253,6 +257,7 @@
     $("success-date").textContent = formatWrittenDate(slot.delivery_at);
     $("success-letter-id").textContent = slot.public_letter_id || "";
     $("btn-return-collection").hidden = true;
+    if (window.LvManage) LvManage.renderSuccessDeliveryBlock(slot);
     showStep("step-success");
   }
 
@@ -261,17 +266,10 @@
 
   $("form-manage").addEventListener("submit", async (e) => {
     e.preventDefault();
-    showError("");
-    await api("/v1/staging/management/request", {
-      method: "POST",
-      body: JSON.stringify({
-        letter_id: $("manage-letter-id").value.trim(),
-        purchaser_email: $("manage-email").value.trim(),
-      }),
-    });
-    showStep("step-manage-sent");
+    if (window.LvManage) await LvManage.submitSecureLinkRequest();
   });
   $("manage-sent-back").addEventListener("click", () => showStep("step-entry"));
+  $("manage-delivery-back")?.addEventListener("click", () => showStep("step-entry"));
 
   function setupCollectionInit() {
     state.selectedMilestoneAges = [];
@@ -295,15 +293,53 @@
         if (bd) bd.onchange = loadMilestoneOptions;
       }, 0);
     } else if (state.mechanism === "RECURRING") {
-      $("collection-init-copy").textContent =
-        "What is the anniversary or birthday we should calculate from?";
+      const isAnniversary = /anniversary/i.test(state.displayTitle || "");
+      $("collection-init-copy").textContent = isAnniversary
+        ? "What date is your anniversary?"
+        : "What is the birthday we should calculate from?";
       $("collection-init-fields").innerHTML =
-        '<label for="base-date">Starting date</label><input type="date" id="base-date" required><p class="vault-hint">We\'ll create your next future moments from this date.</p>';
+        '<label for="base-date">' +
+        (isAnniversary ? "Anniversary date" : "Date of birth") +
+        '</label>' +
+        '<input type="date" id="base-date" required>' +
+        '<div id="recurring-preview" hidden></div>';
+      $("btn-collection-init").disabled = true;
+      $("btn-collection-init").textContent = "CREATE MY COLLECTION";
+      setTimeout(function () {
+        const bd = $("base-date");
+        if (bd) bd.onchange = loadRecurringPreview;
+      }, 0);
     } else {
       $("collection-init-copy").textContent =
         "We'll prepare your letter slots. You can choose each moment when you're ready.";
       $("collection-init-fields").innerHTML = "";
     }
+  }
+
+  async function loadRecurringPreview() {
+    showError("");
+    const bd = $("base-date")?.value;
+    const panel = $("recurring-preview");
+    if (!bd || !panel) return;
+    const res = await api("/v1/vault/collection/recurring-preview", {
+      method: "POST",
+      body: JSON.stringify({ base_date: bd }),
+    });
+    if (res.status !== 200 || res.json.status !== "ok") {
+      showError(res.json.message || "Could not preview dates.");
+      panel.hidden = true;
+      $("btn-collection-init").disabled = true;
+      return;
+    }
+    panel.hidden = false;
+    const lines = (res.json.preview_slots || [])
+      .map((s) => "<li>" + s.delivery_written + "</li>")
+      .join("");
+    panel.innerHTML =
+      '<p class="vault-sub">Your letters will arrive on:</p><ul class="recurring-preview-list">' +
+      lines +
+      "</ul>";
+    $("btn-collection-init").disabled = false;
   }
 
   async function loadMilestoneOptions() {
@@ -485,10 +521,27 @@
         });
         li.appendChild(btn);
       } else {
+        const wrap = document.createElement("div");
+        wrap.className = "slot-sealed-wrap";
         const span = document.createElement("span");
         span.textContent = "SEALED";
         span.className = "slot-status-sealed";
-        li.appendChild(span);
+        wrap.appendChild(span);
+        if (window.LvManage && slot.public_letter_id) {
+          const emailLine = document.createElement("p");
+          emailLine.className = "slot-delivery-email";
+          emailLine.textContent = LvManage.deliveryEmailLabel(slot);
+          wrap.appendChild(emailLine);
+          const emailBtn = document.createElement("button");
+          emailBtn.type = "button";
+          emailBtn.className = "link-btn";
+          emailBtn.textContent = LvManage.deliveryEmailActionLabel(slot);
+          emailBtn.addEventListener("click", () => {
+            LvManage.requestSecureLink(slot.public_letter_id);
+          });
+          wrap.appendChild(emailBtn);
+        }
+        li.appendChild(wrap);
       }
       list.appendChild(li);
     });
@@ -784,10 +837,20 @@
     $("success-date").textContent = formatWrittenDate(res.json.delivery_at);
     $("success-letter-id").textContent = res.json.public_letter_id;
     $("btn-return-collection").hidden = !state.inCollection;
-    showStep("step-success");
 
     const st = await api("/v1/vault/state");
     state.slots = st.json.slots || [];
+    const sealedSlot =
+      state.slots.find((s) => s.public_letter_id === res.json.public_letter_id) ||
+      state.currentSlot;
+    if (window.LvManage) {
+      LvManage.renderSuccessDeliveryBlock({
+        ...sealedSlot,
+        public_letter_id: res.json.public_letter_id,
+        has_delivery_email: false,
+      });
+    }
+    showStep("step-success");
   });
 
   $("btn-copy-id").addEventListener("click", () => {
@@ -804,4 +867,8 @@
       history.pushState(null, "", location.href);
     }
   });
+
+  if (window.LvManage && LvManage.tryOpenFromUrl()) {
+    /* opened management session from magic link */
+  }
 })();

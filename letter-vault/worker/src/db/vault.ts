@@ -5,6 +5,7 @@ import {
   generateSecureToken,
   hashToken,
   isExpired,
+  maskEmail,
 } from "../crypto/management-token";
 
 export const VAULT_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
@@ -220,20 +221,39 @@ export async function fetchSlotsForEntitlement(
 
   const { data: letters } = await client(env)
     .from("letter_vault_letters")
-    .select("id, public_letter_id")
+    .select(
+      "id, public_letter_id, recipient_email, delivery_email_verified_at, delivery_email_mode",
+    )
     .in("id", letterIds);
 
-  const pubMap = new Map(
-    (letters ?? []).map((l: { id: string; public_letter_id: string }) => [
-      l.id,
-      l.public_letter_id,
-    ]),
+  const letterMap = new Map(
+    (letters ?? []).map(
+      (l: {
+        id: string;
+        public_letter_id: string;
+        recipient_email: string | null;
+        delivery_email_verified_at: string | null;
+        delivery_email_mode: string | null;
+      }) => [l.id, l],
+    ),
   );
 
-  return slots.map((s) => ({
-    ...s,
-    public_letter_id: s.letter_id ? pubMap.get(s.letter_id) ?? null : null,
-  }));
+  return slots.map((s) => {
+    const letter = s.letter_id ? letterMap.get(s.letter_id) : null;
+    return {
+      ...s,
+      public_letter_id: s.letter_id ? letter?.public_letter_id ?? null : null,
+      delivery_email_masked: letter?.recipient_email
+        ? maskEmail(letter.recipient_email)
+        : null,
+      has_delivery_email: Boolean(letter?.recipient_email),
+      delivery_email_mode: letter?.delivery_email_mode ?? null,
+      delivery_email_pending_verification:
+        Boolean(letter?.recipient_email) &&
+        letter?.delivery_email_mode === "verified" &&
+        !letter?.delivery_email_verified_at,
+    };
+  });
 }
 
 export async function fetchSlotById(
