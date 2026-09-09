@@ -56,6 +56,10 @@ import {
   handleVaultUnicodeTest,
 } from "./routes/vault";
 import {
+  handleProductionIssueInternalTestEntitlement,
+  handleProductionRevokeInternalTestEntitlement,
+} from "./routes/production-entitlements";
+import {
   handleMailerSendWebhook,
   handleResendWebhook,
   handleStagingWebhookSimulate,
@@ -87,6 +91,19 @@ const worker = {
 
     if (request.method === "GET" && pathname === "/v1/health") {
       return handleHealth(env);
+    }
+
+    if (
+      pathname === "/v1/production/ops/issue-internal-test-entitlement" &&
+      request.method === "POST"
+    ) {
+      return handleProductionIssueInternalTestEntitlement(request, env);
+    }
+    if (
+      pathname === "/v1/production/ops/revoke-internal-test-entitlement" &&
+      request.method === "POST"
+    ) {
+      return handleProductionRevokeInternalTestEntitlement(request, env);
     }
 
     if (pathname === "/v1/webhooks/resend" && request.method === "POST") {

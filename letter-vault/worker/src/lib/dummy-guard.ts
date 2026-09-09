@@ -32,3 +32,17 @@ export function assertDummyOrderRef(ref: string): string | null {
   }
   return null;
 }
+
+export function isDummyEmailDomain(email: string): boolean {
+  const domain = email.trim().toLowerCase().split("@")[1] ?? "";
+  return ALLOWED_DUMMY_DOMAINS.includes(domain);
+}
+
+export function isTestOrderRef(ref: string): boolean {
+  const trimmed = ref.trim().toUpperCase();
+  return (
+    trimmed.startsWith("DUMMY-") ||
+    trimmed.startsWith("TEST-") ||
+    trimmed.startsWith("INTERNAL_TEST-")
+  );
+}

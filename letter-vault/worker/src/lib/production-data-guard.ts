@@ -1,6 +1,11 @@
 import type { Env } from "../env";
 import { getVaultEnvironment } from "../env";
-import { assertDummyPurchaserEmail } from "./dummy-guard";
+import {
+  assertDummyPurchaserEmail,
+  isDummyEmailDomain,
+  isTestOrderRef,
+} from "./dummy-guard";
+import { assertInternalTestEntitlementPolicy } from "./internal-test-entitlement";
 import { jsonResponse } from "./management-response";
 
 export function customerApiEnvironmentGuard(env: Env): Response | null {
@@ -54,5 +59,42 @@ export function assertProductionPurchaserEmail(email: string): string | null {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
     return "Invalid email address.";
   }
+  if (isDummyEmailDomain(normalized)) {
+    return "Production requires a real purchaser email address.";
+  }
   return null;
+}
+
+export function assertProductionEntitlement(row: {
+  source?: string | null;
+  external_order_ref?: string | null;
+}): string | null {
+  const internalPolicy = assertInternalTestEntitlementPolicy(row);
+  if (internalPolicy !== null) {
+    return internalPolicy;
+  }
+  if (row.source?.trim().toLowerCase() === "internal_test") {
+    return null;
+  }
+
+  const source = row.source?.trim().toLowerCase() ?? "";
+  const ref = row.external_order_ref?.trim() ?? "";
+
+  if (source === "manual_staging" || isTestOrderRef(ref)) {
+    return "test_entitlement_not_allowed_in_production";
+  }
+
+  if (
+    ref.toUpperCase().startsWith("DUMMY-") ||
+    ref.toUpperCase().startsWith("TEST-")
+  ) {
+    return "test_entitlement_not_allowed_in_production";
+  }
+
+  return null;
+}
+
+export function productionOnlyResponse(env: Env): Response | null {
+  if (getVaultEnvironment(env) === "production") return null;
+  return jsonResponse({ error: "production_only" }, 403);
 }

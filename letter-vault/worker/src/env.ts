@@ -10,6 +10,10 @@ export interface Env {
   LETTER_VAULT_MASTER_KEY_V1?: string;
   /** Staging-only: admin token for issuing dummy entitlements + access-code HMAC pepper. */
   LETTER_VAULT_STAGING_ADMIN_TOKEN?: string;
+  /** Production: HMAC pepper for access codes (never copy from staging). */
+  LETTER_VAULT_ACCESS_PEPPER?: string;
+  /** Production: admin token for ops routes (issue/revoke internal test). */
+  LETTER_VAULT_PRODUCTION_ADMIN_TOKEN?: string;
   /** Resend API key — Cloudflare secret only. */
   RESEND_API_KEY?: string;
   /** Resend webhook signing secret (whsec_...) — Cloudflare secret only. */

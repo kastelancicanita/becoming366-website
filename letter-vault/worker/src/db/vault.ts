@@ -7,6 +7,7 @@ import {
   isExpired,
   maskEmail,
 } from "../crypto/management-token";
+import { getAccessPepper } from "../lib/env-secrets";
 
 export const VAULT_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -20,9 +21,7 @@ function client(env: Env) {
 }
 
 function pepper(env: Env): string {
-  const p = env.LETTER_VAULT_STAGING_ADMIN_TOKEN;
-  if (!p) throw new Error("vault_pepper_not_configured");
-  return p;
+  return getAccessPepper(env);
 }
 
 export interface EntitlementProductRow {

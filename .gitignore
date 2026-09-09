@@ -1,7 +1,12 @@
 # Letter Vault — local secrets (never commit)
 letter-vault/worker/.dev.vars
 letter-vault/worker/.wrangler/
+.wrangler/
 letter-vault/worker/node_modules/
+
+# Local deploy scratch / backup artifacts (keep real backups elsewhere)
+_deploy8bc/
+letter-vault/backups/
 
 # Environment files
 .env

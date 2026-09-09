@@ -448,7 +448,7 @@ describe("vault enter", () => {
 
 
 
-  it("rejects non-staging environment", async () => {
+  it("rejects dummy purchaser email in production", async () => {
 
     const response = await handleVaultEnter(
 
@@ -466,11 +466,14 @@ describe("vault enter", () => {
 
       }),
 
-      { VAULT_ENV: "production", LETTER_VAULT_STAGING_ADMIN_TOKEN: TEST_PEPPER },
+      {
+        VAULT_ENV: "production",
+        LETTER_VAULT_ACCESS_PEPPER: TEST_PEPPER,
+      },
 
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(401);
 
   });
 

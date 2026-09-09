@@ -33,10 +33,12 @@ import {
   type TemplateConfig,
 } from "../lib/collection-slots";
 import {
+  assertProductionEntitlement,
   customerApiEnvironmentGuard,
   validateCustomerDeliveryEmail,
   validateCustomerPurchaserEmail,
 } from "../lib/production-data-guard";
+import { getAccessPepper } from "../lib/env-secrets";
 import { getVaultEnvironment } from "../env";
 import {
   applyDeliveryEmailUpdate,
@@ -63,9 +65,7 @@ const VAULT_DENIED = {
 } as const;
 
 function pepper(env: Env): string {
-  const p = env.LETTER_VAULT_STAGING_ADMIN_TOKEN;
-  if (!p) throw new Error("vault_pepper_not_configured");
-  return p;
+  return getAccessPepper(env);
 }
 
 async function guardVaultAttempt(
@@ -128,6 +128,14 @@ export async function handleVaultEnter(request: Request, env: Env): Promise<Resp
     const row = await findEntitlementByCredentialsExtended(env, email, hash);
 
     if (!row || !entitlementActive(row)) {
+      return jsonResponse(VAULT_DENIED, 401);
+    }
+
+    const testEntitlementError =
+      getVaultEnvironment(env) === "production"
+        ? assertProductionEntitlement(row)
+        : null;
+    if (testEntitlementError) {
       return jsonResponse(VAULT_DENIED, 401);
     }
 
