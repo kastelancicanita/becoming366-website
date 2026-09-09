@@ -12,8 +12,12 @@ import {
   updateLetterAfterDelivery,
   type LetterRow,
 } from "../db/letters";
-import { markAwaitingDeliveryEmail } from "../db/management";
+import { auditDeliveryEmail, markAwaitingDeliveryEmail } from "../db/management";
 import { insertOutboundQueued, markOutboundSendResult, markOutboundSending } from "../db/email-store";
+import {
+  deferSurpriseLetterForSafeguard,
+  fetchSurpriseDeclaration,
+} from "../db/surprise-declaration";
 import { getDeliveryProvider } from "../email/delivery-provider";
 import { formatDeliveryDate } from "../email/templates/seal-confirmation";
 import {
@@ -21,6 +25,10 @@ import {
   buildFutureDeliverySubject,
   buildFutureDeliveryText,
 } from "../email/templates/future-delivery";
+import {
+  evaluateSurpriseSendGate,
+  SURPRISE_SEND_DEFERRED_CATEGORY,
+} from "../lib/surprise-anti-abuse";
 import {
   evaluateRecipientBodyDelivery,
   type DeliveryProviderId,
@@ -34,8 +42,29 @@ export interface SchedulerResult {
   letters_sent: number;
   letters_failed: number;
   letters_blocked_compliance: number;
+  letters_deferred_safeguard: number;
   stale_recovered: number;
   status: "completed" | "failed";
+}
+
+/** Pre-claim Surprise safeguard — defer without consuming delivery attempts. */
+export async function deferSurpriseSendIfBlocked(
+  env: Env,
+  letter: LetterRow,
+): Promise<boolean> {
+  const gate = await evaluateSurpriseSendGate(env, letter, fetchSurpriseDeclaration);
+  if (gate.allowed) return false;
+
+  await deferSurpriseLetterForSafeguard(env, letter.id, gate.errorCategory);
+  if (gate.auditEmail) {
+    await auditDeliveryEmail(
+      env,
+      letter.id,
+      SURPRISE_SEND_DEFERRED_CATEGORY,
+      gate.auditEmail,
+    );
+  }
+  return true;
 }
 
 function workerInstanceId(): string {
@@ -202,6 +231,7 @@ export async function runDeliveryScheduler(
   let lettersSent = 0;
   let lettersFailed = 0;
   let lettersBlockedCompliance = 0;
+  let lettersDeferredSafeguard = 0;
   let staleRecovered = 0;
 
   try {
@@ -223,6 +253,11 @@ export async function runDeliveryScheduler(
         } else {
           lettersBlockedCompliance++;
         }
+        continue;
+      }
+
+      if (await deferSurpriseSendIfBlocked(env, candidate)) {
+        lettersDeferredSafeguard++;
         continue;
       }
 
@@ -261,6 +296,7 @@ export async function runDeliveryScheduler(
       letters_sent: lettersSent,
       letters_failed: lettersFailed,
       letters_blocked_compliance: lettersBlockedCompliance,
+      letters_deferred_safeguard: lettersDeferredSafeguard,
       stale_recovered: staleRecovered,
       status: "completed",
     };
@@ -282,6 +318,7 @@ export async function runDeliveryScheduler(
       letters_sent: lettersSent,
       letters_failed: lettersFailed,
       letters_blocked_compliance: lettersBlockedCompliance,
+      letters_deferred_safeguard: lettersDeferredSafeguard,
       stale_recovered: staleRecovered,
       status: "failed",
     };
@@ -324,6 +361,10 @@ export async function processSingleLetter(
       await markAwaitingDeliveryEmail(env, letterId);
       return { claimed: false, outcome: "awaiting_delivery_email" };
     }
+    return { claimed: false, outcome: "blocked_compliant_provider" };
+  }
+
+  if (await deferSurpriseSendIfBlocked(env, letter)) {
     return { claimed: false, outcome: "blocked_compliant_provider" };
   }
 

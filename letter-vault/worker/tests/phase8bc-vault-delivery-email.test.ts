@@ -54,6 +54,12 @@ vi.mock("../src/db/management", () => ({
   createDeliveryEmailChange: vi.fn(async () => undefined),
 }));
 
+vi.mock("../src/db/surprise-declaration", () => ({
+  recordSurpriseDeclaration: vi.fn(async () => undefined),
+  fetchSurpriseDeclaration: vi.fn(async () => null),
+  deferSurpriseLetterForSafeguard: vi.fn(async () => undefined),
+}));
+
 vi.mock("../src/email/resend-client", () => ({
   sendViaResend: vi.fn(async () => ({ ok: true, providerMessageId: "msg-1" })),
 }));
@@ -72,6 +78,7 @@ describe("surprise delivery email choice", () => {
     expect(customerDeliveryEmailCapabilities({ VAULT_ENV: "production" })).toEqual({
       surprise_delivery_email_available: false,
       surprise_unavailable_message: surpriseDeliveryUnavailableMessage(),
+      surprise_declaration_text: null,
     });
   });
 });
@@ -92,6 +99,19 @@ describe("applyDeliveryEmailUpdate", () => {
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: string };
     expect(json.error).toBe("surprise_unavailable");
+  });
+
+  it("rejects staging surprise without declaration", async () => {
+    const res = await applyDeliveryEmailUpdate(
+      { VAULT_ENV: "staging" } as Env,
+      new Request("https://example.com/v1/vault/delivery-email"),
+      letterRow(),
+      "child@example.com",
+      "surprise",
+    );
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error).toBe("surprise_declaration_required");
   });
 
   it("accepts verify_now in production", async () => {

@@ -72,6 +72,12 @@ vi.mock("../src/email/resend-client", () => ({
   sendViaResend: vi.fn(async () => ({ id: "email-id" })),
 }));
 
+vi.mock("../src/db/surprise-declaration", () => ({
+  recordSurpriseDeclaration: vi.fn(async () => undefined),
+  fetchSurpriseDeclaration: vi.fn(async () => null),
+  deferSurpriseLetterForSafeguard: vi.fn(async () => undefined),
+}));
+
 describe("management session client reuse", () => {
   it("uses a stable sessionStorage key", () => {
     expect(MGMT_SESSION_STORE_KEY).toBe("lv_mgmt_session_v1");
@@ -191,6 +197,7 @@ describe("management session flow regression", () => {
           body: JSON.stringify({
             new_delivery_email: "child@example.com",
             delivery_email_mode: "surprise",
+            surprise_personal_declaration_accepted: true,
           }),
         },
       ),

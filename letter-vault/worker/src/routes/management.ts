@@ -331,6 +331,7 @@ export async function handleDeliveryEmailChangeRequest(
   let body: {
     new_delivery_email?: string;
     delivery_email_mode?: "surprise" | "verify_now";
+    surprise_personal_declaration_accepted?: boolean;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -366,7 +367,10 @@ export async function handleDeliveryEmailChangeRequest(
     }
 
     const mode = body.delivery_email_mode === "surprise" ? "surprise" : "verify_now";
-    return applyDeliveryEmailUpdate(env, request, letter, newEmail, mode);
+    return applyDeliveryEmailUpdate(env, request, letter, newEmail, mode, {
+      surprisePersonalDeclarationAccepted:
+        body.surprise_personal_declaration_accepted,
+    });
   } catch {
     return managementDeniedResponse();
   }

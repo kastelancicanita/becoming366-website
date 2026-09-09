@@ -20,15 +20,17 @@ export async function hashBucketKey(input: string): Promise<string> {
     .join("");
 }
 
-export async function isRateLimited(
+export async function isBucketRateLimited(
   env: Env,
   bucketKey: string,
+  maxAttempts: number,
+  windowMs: number,
 ): Promise<boolean> {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
     return false;
   }
 
-  const since = new Date(Date.now() - WINDOW_MS).toISOString();
+  const since = new Date(Date.now() - windowMs).toISOString();
   const client = supabase(env);
 
   const { count, error } = await client
@@ -41,7 +43,14 @@ export async function isRateLimited(
     return false;
   }
 
-  return (count ?? 0) >= MAX_ATTEMPTS;
+  return (count ?? 0) >= maxAttempts;
+}
+
+export async function isRateLimited(
+  env: Env,
+  bucketKey: string,
+): Promise<boolean> {
+  return isBucketRateLimited(env, bucketKey, MAX_ATTEMPTS, WINDOW_MS);
 }
 
 export async function recordAuthAttempt(

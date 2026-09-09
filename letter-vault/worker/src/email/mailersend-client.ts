@@ -1,4 +1,5 @@
 import type { Env } from "../env";
+import { validateSingleSurpriseRecipient } from "../lib/surprise-anti-abuse";
 
 export interface MailerSendSendResult {
   ok: boolean;
@@ -28,6 +29,16 @@ export async function sendViaMailerSend(
     text: string;
   },
 ): Promise<MailerSendSendResult> {
+  const recipient = validateSingleSurpriseRecipient(input.to);
+  if (!recipient.ok) {
+    return {
+      ok: false,
+      providerMessageId: null,
+      errorSummary: recipient.code,
+      httpStatus: 400,
+    };
+  }
+
   const token = env.MAILERSEND_API_TOKEN?.trim();
   if (!token) {
     return {
@@ -59,7 +70,7 @@ export async function sendViaMailerSend(
         email: from.match(/<([^>]+)>/)?.[1] ?? from,
         name: from.replace(/<[^>]+>/, "").trim() || "The Letter Vault",
       },
-      to: [{ email: input.to }],
+      to: [{ email: recipient.email }],
       subject: input.subject,
       html: input.html,
       text: input.text,
