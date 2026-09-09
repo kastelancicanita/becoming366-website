@@ -6,6 +6,11 @@ const deferSurpriseLetterForSafeguard = vi.fn(async () => {});
 const fetchSurpriseDeclaration = vi.fn(async () => null as null);
 const auditDeliveryEmail = vi.fn(async () => {});
 
+vi.mock("../src/db/recipient-suppression", () => ({
+  isRecipientSuppressed: vi.fn(async () => false),
+  upsertRecipientSuppression: vi.fn(async () => {}),
+}));
+
 vi.mock("../src/db/surprise-declaration", () => ({
   deferSurpriseLetterForSafeguard: (...args: unknown[]) =>
     deferSurpriseLetterForSafeguard(...args),

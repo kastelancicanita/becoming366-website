@@ -20,6 +20,8 @@ export interface Env {
   MAILERSEND_SURPRISE_FROM_EMAIL?: string;
   /** Optional display name paired with MAILERSEND_SURPRISE_FROM_EMAIL. */
   MAILERSEND_SURPRISE_FROM_NAME?: string;
+  /** MailerSend webhook signing secret (per-webhook secret from MailerSend dashboard). */
+  MAILERSEND_WEBHOOK_SECRET?: string;
   /** Staging preview UI base for management magic-link redirects (no trailing slash). */
   LETTER_VAULT_UI_BASE_URL?: string;
 }

@@ -35,6 +35,34 @@ export function mapResendEventType(eventType: string): EmailStatus | null {
   return RESEND_EVENT_STATUS[eventType] ?? null;
 }
 
+/** MailerSend activity events → internal email status (delivery signals only). */
+export const MAILERSEND_EVENT_STATUS: Record<string, EmailStatus> = {
+  "activity.sent": "sent",
+  "activity.delivered": "delivered",
+  "activity.hard_bounced": "bounced",
+  "activity.soft_bounced": "failed",
+  "activity.deferred": "sending",
+  "activity.spam_complaint": "complained",
+  "recipient.on_hold_added": "blocked",
+};
+
+/** Engagement events are not delivery confirmation — ignore for status mapping. */
+const MAILERSEND_IGNORED_EVENTS = new Set([
+  "activity.opened",
+  "activity.opened_unique",
+  "activity.clicked",
+  "activity.clicked_unique",
+  "activity.unsubscribed",
+  "activity.survey_opened",
+  "activity.survey_submitted",
+  "webhook.test",
+]);
+
+export function mapMailerSendEventType(eventType: string): EmailStatus | null {
+  if (MAILERSEND_IGNORED_EVENTS.has(eventType)) return null;
+  return MAILERSEND_EVENT_STATUS[eventType] ?? null;
+}
+
 /**
  * Prevent out-of-order webhook regression (e.g. delivered → sent).
  * Terminal failure states (rank 100) may advance from sent but not from delivered.

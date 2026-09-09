@@ -14,6 +14,7 @@ import {
 } from "../db/letters";
 import { auditDeliveryEmail, markAwaitingDeliveryEmail } from "../db/management";
 import { insertOutboundQueued, markOutboundSendResult, markOutboundSending } from "../db/email-store";
+import { isRecipientSuppressed } from "../db/recipient-suppression";
 import {
   deferSurpriseLetterForSafeguard,
   fetchSurpriseDeclaration,
@@ -53,7 +54,12 @@ export async function deferSurpriseSendIfBlocked(
   env: Env,
   letter: LetterRow,
 ): Promise<boolean> {
-  const gate = await evaluateSurpriseSendGate(env, letter, fetchSurpriseDeclaration);
+  const gate = await evaluateSurpriseSendGate(
+    env,
+    letter,
+    fetchSurpriseDeclaration,
+    isRecipientSuppressed,
+  );
   if (gate.allowed) return false;
 
   await deferSurpriseLetterForSafeguard(env, letter.id, gate.errorCategory);
@@ -140,6 +146,7 @@ export async function processClaimedLetter(
       delivery_date: letter.delivery_at.slice(0, 10),
       letter_ref: letter.id,
       email_type: "future_delivery",
+      provider: providerId,
     });
 
     if (duplicate && outbound?.provider_message_id) {

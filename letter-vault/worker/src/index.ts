@@ -53,6 +53,7 @@ import {
   handleVaultUnicodeTest,
 } from "./routes/vault";
 import {
+  handleMailerSendWebhook,
   handleResendWebhook,
   handleStagingWebhookSimulate,
 } from "./routes/webhooks";
@@ -87,6 +88,10 @@ const worker = {
 
     if (pathname === "/v1/webhooks/resend" && request.method === "POST") {
       return handleResendWebhook(request, env);
+    }
+
+    if (pathname === "/v1/webhooks/mailersend" && request.method === "POST") {
+      return handleMailerSendWebhook(request, env);
     }
 
     if (pathname === "/v1/staging/poc/roundtrip" && request.method === "POST") {

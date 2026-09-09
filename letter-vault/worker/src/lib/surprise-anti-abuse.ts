@@ -33,6 +33,7 @@ export type SurpriseSaveBlockCode =
 
 export type SurpriseSendSafeguardCode =
   | "surprise_declaration_missing"
+  | "surprise_recipient_suppressed"
   | SurpriseRecipientValidationCode
   | "surprise_test_domain_blocked";
 
@@ -161,6 +162,10 @@ export async function evaluateSurpriseSendGate(
     env: Env,
     letterId: string,
   ) => Promise<{ declaration_version: string; accepted_at: string } | null>,
+  checkSuppressed: (
+    env: Env,
+    recipientEmail: string,
+  ) => Promise<boolean> = async () => false,
 ): Promise<SurpriseSendGateResult> {
   if (letter.delivery_email_mode !== "surprise") {
     return { allowed: true };
@@ -172,6 +177,14 @@ export async function evaluateSurpriseSendGate(
       allowed: false,
       errorCategory: safeguard.code,
       auditEmail: letter.recipient_email,
+    };
+  }
+
+  if (await checkSuppressed(env, safeguard.email)) {
+    return {
+      allowed: false,
+      errorCategory: "surprise_recipient_suppressed",
+      auditEmail: safeguard.email,
     };
   }
 

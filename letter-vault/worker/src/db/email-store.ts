@@ -57,6 +57,7 @@ export async function insertOutboundQueued(
     letter_ref?: string | null;
     entitlement_ref?: string | null;
     email_type?: string;
+    provider?: string;
   },
 ): Promise<{ row: OutboundEmailRow | null; duplicate: boolean }> {
   const supabase = client(env);
@@ -66,7 +67,7 @@ export async function insertOutboundQueued(
       idempotency_key: row.idempotency_key,
       email_type: row.email_type ?? "seal_confirmation",
       recipient_email: row.recipient_email,
-      provider: "resend",
+      provider: row.provider ?? "resend",
       status: "queued",
       status_rank: rankForStatus("queued"),
       delivery_date: row.delivery_date,
