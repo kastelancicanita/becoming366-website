@@ -14,6 +14,12 @@ export interface Env {
   RESEND_API_KEY?: string;
   /** Resend webhook signing secret (whsec_...) — Cloudflare secret only. */
   RESEND_WEBHOOK_SECRET?: string;
+  /** MailerSend API token — Surprise recipient delivery only (S2+ routing). */
+  MAILERSEND_API_TOKEN?: string;
+  /** Verified MailerSend from email for Surprise delivery (domain must be verified in MailerSend). */
+  MAILERSEND_SURPRISE_FROM_EMAIL?: string;
+  /** Optional display name paired with MAILERSEND_SURPRISE_FROM_EMAIL. */
+  MAILERSEND_SURPRISE_FROM_NAME?: string;
   /** Staging preview UI base for management magic-link redirects (no trailing slash). */
   LETTER_VAULT_UI_BASE_URL?: string;
 }
