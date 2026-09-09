@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import {
   evaluateRecipientBodyDelivery,
+  isSurpriseDeliveryFeatureEnabled,
   isSurpriseMode,
   isSurpriseDeliveryEmailChoiceAllowed,
   mayUseResendForOperationalMail,
@@ -31,13 +32,28 @@ describe("8B-10 surprise delivery policy", () => {
     expect(isSurpriseMode({ delivery_email_mode: "verified" })).toBe(false);
   });
 
-  it("blocks production Surprise UI choice", () => {
+  it("blocks production Surprise UI choice when flag is OFF", () => {
     expect(isSurpriseDeliveryEmailChoiceAllowed(env({ VAULT_ENV: "production" }))).toBe(
       false,
     );
+    expect(
+      isSurpriseDeliveryFeatureEnabled(env({ VAULT_ENV: "production" })),
+    ).toBe(false);
   });
 
-  it("blocks production Surprise recipient body delivery", () => {
+  it("allows production Surprise when SURPRISE_DELIVERY_ENABLED=true", () => {
+    const enabled = env({
+      VAULT_ENV: "production",
+      SURPRISE_DELIVERY_ENABLED: "true",
+    });
+    expect(isSurpriseDeliveryEmailChoiceAllowed(enabled)).toBe(true);
+    expect(evaluateRecipientBodyDelivery(enabled, surpriseLetter)).toEqual({
+      allowed: true,
+      providerId: "mailersend",
+    });
+  });
+
+  it("blocks production Surprise recipient body delivery when flag is OFF", () => {
     const decision = evaluateRecipientBodyDelivery(
       env({ VAULT_ENV: "production" }),
       surpriseLetter,

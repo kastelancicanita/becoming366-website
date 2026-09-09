@@ -22,7 +22,19 @@
     milestoneOptions: [],
     purchaserEmail: null,
     recipientLocked: false,
+    surprise_delivery_email_available: undefined,
+    surprise_unavailable_message: null,
+    surprise_declaration_text: null,
   };
+
+  function applyDeliveryCapabilities(source) {
+    if (!source || typeof source.surprise_delivery_email_available !== "boolean") {
+      return;
+    }
+    state.surprise_delivery_email_available = source.surprise_delivery_email_available;
+    state.surprise_unavailable_message = source.surprise_unavailable_message ?? null;
+    state.surprise_declaration_text = source.surprise_declaration_text ?? null;
+  }
 
   window.LvVaultState = state;
 
@@ -225,6 +237,7 @@
       milestoneOptions: [],
       purchaserEmail: $("purchase-email").value.trim(),
     });
+    applyDeliveryCapabilities(res.json);
 
     const firstRecipient = (res.json.slots || []).find(
       (s) => s.recipient_context?.relationship,
@@ -240,6 +253,7 @@
       await api("/v1/vault/single/prepare", { method: "POST", body: "{}" });
       const st = await api("/v1/vault/state");
       state.slots = st.json.slots || [];
+      applyDeliveryCapabilities(st.json);
     }
     if (state.inCollection && state.slots.length) {
       renderCollection();
@@ -842,6 +856,7 @@
 
     const st = await api("/v1/vault/state");
     state.slots = st.json.slots || [];
+    applyDeliveryCapabilities(st.json);
     const sealedSlot =
       state.slots.find((s) => s.public_letter_id === res.json.public_letter_id) ||
       state.currentSlot;

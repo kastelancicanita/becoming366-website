@@ -158,6 +158,7 @@ export async function handleVaultEnter(request: Request, env: Env): Promise<Resp
       needs_single_slot: needsSingleSlot,
       collection_initialized: Boolean(collection?.initialized_at),
       slots: slots.map(publicSlotView),
+      ...customerDeliveryEmailCapabilities(env),
       letter_body_in_response: false,
       raw_access_code_in_response: false,
     });

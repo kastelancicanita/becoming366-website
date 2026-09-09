@@ -7,11 +7,10 @@
     metadata: null,
     selectedMode: null,
     authChannel: null,
+    deliveryCapabilities: null,
   };
 
-  function $(id) {
-    return document.getElementById(id);
-  }
+  const $ = (id) => document.getElementById(id);
 
   function vaultApi(path, opts) {
     const headers = {
@@ -31,25 +30,87 @@
     return Boolean(window.LvVaultState?.session);
   }
 
-  function applySurpriseModeUi() {
+  function deliveryCapabilitiesFrom(source) {
+    if (source && typeof source.surprise_delivery_email_available === "boolean") {
+      return {
+        surprise_delivery_email_available: source.surprise_delivery_email_available,
+        surprise_unavailable_message: source.surprise_unavailable_message ?? null,
+        surprise_declaration_text: source.surprise_declaration_text ?? null,
+      };
+    }
+    if (mgmt.deliveryCapabilities) return mgmt.deliveryCapabilities;
+    if (window.LvVaultState?.surprise_delivery_email_available !== undefined) {
+      return {
+        surprise_delivery_email_available:
+          window.LvVaultState.surprise_delivery_email_available,
+        surprise_unavailable_message:
+          window.LvVaultState.surprise_unavailable_message ?? null,
+        surprise_declaration_text:
+          window.LvVaultState.surprise_declaration_text ?? null,
+      };
+    }
+    return {
+      surprise_delivery_email_available:
+        window.LETTER_VAULT_UI_ENV !== "production",
+      surprise_unavailable_message: null,
+      surprise_declaration_text: null,
+    };
+  }
+
+  function storeDeliveryCapabilities(source) {
+    mgmt.deliveryCapabilities = deliveryCapabilitiesFrom(source);
+    if (window.LvVaultState) {
+      window.LvVaultState.surprise_delivery_email_available =
+        mgmt.deliveryCapabilities.surprise_delivery_email_available;
+      window.LvVaultState.surprise_unavailable_message =
+        mgmt.deliveryCapabilities.surprise_unavailable_message;
+      window.LvVaultState.surprise_declaration_text =
+        mgmt.deliveryCapabilities.surprise_declaration_text;
+    }
+  }
+
+  function updateSaveButtonState() {
+    const email = $("mgmt-delivery-email")?.value.trim();
+    const declarationOk =
+      mgmt.selectedMode !== "surprise" ||
+      $("mgmt-surprise-declaration-check")?.checked;
+    $("btn-save-delivery-email").disabled =
+      !email || !mgmt.selectedMode || !declarationOk;
+  }
+
+  function applySurpriseModeUi(capabilitySource) {
+    const caps = deliveryCapabilitiesFrom(capabilitySource);
     const surpriseBtn = $("btn-manage-mode-surprise");
     const verifyBtn = $("btn-manage-mode-verify");
     const notice = $("mgmt-surprise-unavailable");
-    const isProduction = window.LETTER_VAULT_UI_ENV === "production";
+    const declarationBlock = $("mgmt-surprise-declaration");
+    const declarationText = $("mgmt-surprise-declaration-text");
+    const declarationCheck = $("mgmt-surprise-declaration-check");
     if (!surpriseBtn || !verifyBtn) return;
-    if (isProduction) {
+
+    const surpriseAvailable = caps.surprise_delivery_email_available === true;
+
+    if (!surpriseAvailable) {
       surpriseBtn.hidden = true;
       surpriseBtn.disabled = true;
       if (notice) notice.hidden = false;
-      mgmt.selectedMode = "verify_now";
-      document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
-      verifyBtn.classList.add("selected");
-      $("btn-save-delivery-email").disabled = !$("mgmt-delivery-email")?.value.trim();
+      if (declarationBlock) declarationBlock.hidden = true;
+      if (declarationCheck) declarationCheck.checked = false;
+      if (mgmt.selectedMode === "surprise") {
+        mgmt.selectedMode = "verify_now";
+        document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
+        verifyBtn.classList.add("selected");
+      }
     } else {
       surpriseBtn.hidden = false;
       surpriseBtn.disabled = false;
       if (notice) notice.hidden = true;
+      if (declarationBlock) declarationBlock.hidden = false;
+      if (declarationText && caps.surprise_declaration_text) {
+        declarationText.textContent = caps.surprise_declaration_text;
+      }
     }
+    updateSaveButtonState();
   }
 
   function formatDeliverySummaryDate(iso) {
@@ -102,35 +163,27 @@
     document.querySelectorAll(".vault-step").forEach((s) => {
       s.classList.toggle("active", s.id === id);
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const MGMT_STORE_KEY = "lv_mgmt_session_v1";
 
   function persistMgmtSession() {
-    if (!mgmt.session) return;
-    try {
-      sessionStorage.setItem(
-        MGMT_STORE_KEY,
-        JSON.stringify({ session: mgmt.session, letterId: mgmt.letterId }),
-      );
-    } catch (_) {
-      /* private browsing / quota */
-    }
+    if (!mgmt.session || !mgmt.letterId) return;
+    sessionStorage.setItem(
+      MGMT_STORE_KEY,
+      JSON.stringify({ session: mgmt.session, letterId: mgmt.letterId }),
+    );
   }
 
   function restoreMgmtSession() {
-    if (mgmt.session) return;
     try {
       const raw = sessionStorage.getItem(MGMT_STORE_KEY);
       if (!raw) return;
-      const data = JSON.parse(raw);
-      if (data && typeof data.session === "string" && data.session) {
-        mgmt.session = data.session;
-        mgmt.letterId = data.letterId || null;
-      }
-    } catch (_) {
-      /* corrupt storage */
+      const parsed = JSON.parse(raw);
+      if (parsed?.session) mgmt.session = parsed.session;
+      if (parsed?.letterId) mgmt.letterId = parsed.letterId;
+    } catch {
+      /* ignore */
     }
   }
 
@@ -138,45 +191,18 @@
     mgmt.session = null;
     mgmt.letterId = null;
     mgmt.metadata = null;
-    mgmt.authChannel = null;
-    try {
-      sessionStorage.removeItem(MGMT_STORE_KEY);
-    } catch (_) {
-      /* ignore */
-    }
+    sessionStorage.removeItem(MGMT_STORE_KEY);
   }
 
   function canReuseMgmtSession(letterId) {
-    if (!mgmt.session) return false;
-    if (!mgmt.letterId) return true;
-    return mgmt.letterId.toUpperCase() === letterId.toUpperCase();
-  }
-
-  function deliveryEmailLabel(slot) {
-    if (!slot || slot.slot_status !== "SEALED") return "";
-    if (slot.delivery_email_pending_verification) {
-      return "Delivery email: Pending verification";
-    }
-    if (slot.has_delivery_email && slot.delivery_email_masked) {
-      return "Delivery email: " + slot.delivery_email_masked;
-    }
-    return "Delivery email: Not added yet";
-  }
-
-  function deliveryEmailActionLabel(slot) {
-    if (!slot || slot.slot_status !== "SEALED") return "";
-    if (slot.has_delivery_email) return "CHANGE →";
-    return "ADD DELIVERY EMAIL →";
+    return Boolean(mgmt.session && mgmt.letterId === letterId);
   }
 
   window.LvManage = {
-    deliveryEmailLabel: deliveryEmailLabel,
-    deliveryEmailActionLabel: deliveryEmailActionLabel,
-
     renderSuccessDeliveryBlock: function (slot) {
-      const block = $("success-email-block");
+      const block = $("success-delivery-block");
       if (!block) return;
-      const hasEmail = slot && slot.has_delivery_email && slot.delivery_email_masked;
+      const hasEmail = Boolean(slot.has_delivery_email);
       block.innerHTML =
         '<p class="success-email-label">Delivery email</p>' +
         '<p class="success-email-status">' +
@@ -207,6 +233,7 @@
       mgmt.letterId = letterId;
       mgmt.session = null;
       mgmt.metadata = null;
+      storeDeliveryCapabilities(window.LvVaultState);
       renderDeliverySummary(
         letterId,
         slot?.delivery_at || null,
@@ -215,8 +242,10 @@
       $("mgmt-delivery-email").value = "";
       mgmt.selectedMode = null;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
-      $("btn-save-delivery-email").disabled = true;
-      applySurpriseModeUi();
+      if ($("mgmt-surprise-declaration-check")) {
+        $("mgmt-surprise-declaration-check").checked = false;
+      }
+      applySurpriseModeUi(window.LvVaultState);
       showStep("step-manage-delivery");
     },
 
@@ -308,6 +337,7 @@
         return;
       }
       mgmt.metadata = res.json.management;
+      storeDeliveryCapabilities(res.json);
       $("mgmt-letter-summary").innerHTML =
         "<p><strong>Letter ID</strong> " +
         (mgmt.letterId || "—") +
@@ -326,8 +356,10 @@
       $("mgmt-delivery-email").value = "";
       mgmt.selectedMode = null;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
-      $("btn-save-delivery-email").disabled = true;
-      applySurpriseModeUi();
+      if ($("mgmt-surprise-declaration-check")) {
+        $("mgmt-surprise-declaration-check").checked = false;
+      }
+      applySurpriseModeUi(res.json);
       persistMgmtSession();
       showStep("step-manage-delivery");
     },
@@ -336,7 +368,7 @@
       mgmt.selectedMode = mode;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
       btn.classList.add("selected");
-      $("btn-save-delivery-email").disabled = !$("mgmt-delivery-email").value.trim();
+      updateSaveButtonState();
     },
 
     saveDeliveryEmail: async function () {
@@ -350,6 +382,20 @@
         showMgmtError("Please choose how we should handle this address.");
         return;
       }
+      if (
+        mgmt.selectedMode === "surprise" &&
+        !$("mgmt-surprise-declaration-check")?.checked
+      ) {
+        showMgmtError("Please confirm the personal delivery declaration.");
+        return;
+      }
+
+      const payload = {
+        delivery_email_mode: mgmt.selectedMode,
+      };
+      if (mgmt.selectedMode === "surprise") {
+        payload.surprise_personal_declaration_accepted = true;
+      }
 
       let res;
       if (mgmt.authChannel === "vault" && hasActiveVaultSession()) {
@@ -358,7 +404,7 @@
           body: JSON.stringify({
             public_letter_id: mgmt.letterId,
             delivery_email: email,
-            delivery_email_mode: mgmt.selectedMode,
+            ...payload,
           }),
         });
       } else {
@@ -366,7 +412,7 @@
           method: "POST",
           body: JSON.stringify({
             new_delivery_email: email,
-            delivery_email_mode: mgmt.selectedMode,
+            ...payload,
           }),
         });
       }
@@ -385,10 +431,8 @@
   };
 
   $("btn-save-delivery-email")?.addEventListener("click", () => LvManage.saveDeliveryEmail());
-  $("mgmt-delivery-email")?.addEventListener("input", function () {
-    $("btn-save-delivery-email").disabled =
-      !this.value.trim() || !mgmt.selectedMode;
-  });
+  $("mgmt-delivery-email")?.addEventListener("input", updateSaveButtonState);
+  $("mgmt-surprise-declaration-check")?.addEventListener("change", updateSaveButtonState);
   $("btn-manage-done")?.addEventListener("click", () => showStep("step-entry"));
   $("btn-manage-mode-surprise")?.addEventListener("click", function () {
     LvManage.selectMode("surprise", this);

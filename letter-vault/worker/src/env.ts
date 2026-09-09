@@ -22,6 +22,11 @@ export interface Env {
   MAILERSEND_SURPRISE_FROM_NAME?: string;
   /** MailerSend webhook signing secret (per-webhook secret from MailerSend dashboard). */
   MAILERSEND_WEBHOOK_SECRET?: string;
+  /**
+   * Production Surprise unlock (S5). Must be exactly "true" to enable; missing/malformed = OFF.
+   * Do not set in production until launch gate is complete.
+   */
+  SURPRISE_DELIVERY_ENABLED?: string;
   /** Staging preview UI base for management magic-link redirects (no trailing slash). */
   LETTER_VAULT_UI_BASE_URL?: string;
 }

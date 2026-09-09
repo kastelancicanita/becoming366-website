@@ -18,9 +18,19 @@ export type RecipientBodyDeliveryDecision =
   | { allowed: true; providerId: DeliveryProviderId }
   | { allowed: false; reason: RecipientBodyDeliveryBlockReason };
 
-/** Customer API: Surprise choice on delivery-email screens (production blocked until S5). */
+/** Explicit enabled value for SURPRISE_DELIVERY_ENABLED (fail-safe: anything else is OFF). */
+export const SURPRISE_DELIVERY_ENABLED_VALUE = "true" as const;
+
+/** Production Surprise feature flag — authoritative gate for S5 unlock. */
+export function isSurpriseDeliveryFeatureEnabled(env: Env): boolean {
+  return env.SURPRISE_DELIVERY_ENABLED?.trim().toLowerCase() ===
+    SURPRISE_DELIVERY_ENABLED_VALUE;
+}
+
+/** Customer API: Surprise choice on delivery-email screens. */
 export function isSurpriseDeliveryEmailChoiceAllowed(env: Env): boolean {
-  return getVaultEnvironment(env) !== "production";
+  if (getVaultEnvironment(env) !== "production") return true;
+  return isSurpriseDeliveryFeatureEnabled(env);
 }
 
 export function surpriseDeliveryUnavailableMessage(): string {
@@ -35,7 +45,7 @@ export function isSurpriseMode(letter: {
 
 /**
  * Whether the worker may send the letter body to the recipient on delivery day.
- * S2: staging/dev Surprise routes to MailerSend; production Surprise stays blocked until S5.
+ * S2/S5: Surprise routes to MailerSend; production requires SURPRISE_DELIVERY_ENABLED=true.
  */
 export function evaluateRecipientBodyDelivery(
   env: Env,
@@ -50,7 +60,10 @@ export function evaluateRecipientBodyDelivery(
   }
 
   if (isSurpriseMode(letter)) {
-    if (getVaultEnvironment(env) === "production") {
+    if (
+      getVaultEnvironment(env) === "production" &&
+      !isSurpriseDeliveryFeatureEnabled(env)
+    ) {
       return { allowed: false, reason: "surprise_resend_blocked_production" };
     }
     return { allowed: true, providerId: "mailersend" };
@@ -73,7 +86,11 @@ export function surpriseRecipientDeliveryStatus(
   env: Env,
   mode: string,
 ): string {
-  if (mode === "surprise" && getVaultEnvironment(env) === "production") {
+  if (
+    mode === "surprise" &&
+    getVaultEnvironment(env) === "production" &&
+    !isSurpriseDeliveryFeatureEnabled(env)
+  ) {
     return "blocked_pending_compliant_provider";
   }
   if (mode === "surprise") return "surprise_mode";

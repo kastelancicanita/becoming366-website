@@ -77,6 +77,7 @@ describe("surprise delivery email choice", () => {
     ).toBe(false);
     expect(customerDeliveryEmailCapabilities({ VAULT_ENV: "production" })).toEqual({
       surprise_delivery_email_available: false,
+      surprise_delivery_feature_flag_enabled: false,
       surprise_unavailable_message: surpriseDeliveryUnavailableMessage(),
       surprise_declaration_text: null,
     });
@@ -141,12 +142,14 @@ describe("vault session delivery email UI regression", () => {
     expect(manageJs).toContain("hasActiveVaultSession()");
   });
 
-  it("hides surprise mode in production UI", () => {
+  it("hides surprise mode when API reports surprise unavailable", () => {
     const manageJs = readFileSync(
       join(LETTER_VAULT_ROOT, "js", "manage.js"),
       "utf8",
     );
-    expect(manageJs).toContain('LETTER_VAULT_UI_ENV === "production"');
+    expect(manageJs).toContain("surprise_delivery_email_available");
+    expect(manageJs).toContain("applySurpriseModeUi");
     expect(manageJs).toContain("mgmt-surprise-unavailable");
+    expect(manageJs).toContain("mgmt-surprise-declaration");
   });
 });

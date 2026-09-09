@@ -24,6 +24,7 @@ crons = ["* * * * *"]
 
 [env.production]
 name = "letter-vault-api-production"
+# SURPRISE_DELIVERY_ENABLED intentionally omitted — fail-safe OFF until launch gate (S5/S6).
 vars = { VAULT_ENV = "production", LETTER_VAULT_UI_BASE_URL = "https://becoming366.com" }
 
 # Secrets (set per environment, never in this file):

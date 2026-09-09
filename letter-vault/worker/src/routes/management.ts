@@ -23,7 +23,10 @@ import {
 } from "../email/templates/management";
 import { sendViaResend } from "../email/resend-client";
 import type { Env } from "../env";
-import { applyDeliveryEmailUpdate } from "../lib/delivery-email-update";
+import {
+  applyDeliveryEmailUpdate,
+  customerDeliveryEmailCapabilities,
+} from "../lib/delivery-email-update";
 import {
   accessDeniedResponse,
   rateLimitedResponse,
@@ -309,6 +312,7 @@ export async function handleManagementSessionView(
       status: "ok",
       phase: "phase6",
       management: metadata,
+      ...customerDeliveryEmailCapabilities(env),
       letter_body_in_response: false,
       ciphertext_in_response: false,
     });
