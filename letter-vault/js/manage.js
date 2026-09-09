@@ -12,6 +12,21 @@
 
   const $ = (id) => document.getElementById(id);
 
+  function parseApiResponse(r, text) {
+    let json = {};
+    if (text) {
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = {
+          status: "error",
+          message: text.slice(0, 200) || "Unexpected server response.",
+        };
+      }
+    }
+    return { status: r.status, json };
+  }
+
   function vaultApi(path, opts) {
     const headers = {
       "Content-Type": "application/json",
@@ -23,7 +38,7 @@
     return fetch(window.LETTER_VAULT_API + path, {
       ...opts,
       headers,
-    }).then((r) => r.json().then((j) => ({ status: r.status, json: j })));
+    }).then(async (r) => parseApiResponse(r, await r.text()));
   }
 
   function hasActiveVaultSession() {
@@ -70,12 +85,26 @@
   }
 
   function updateSaveButtonState() {
-    const email = $("mgmt-delivery-email")?.value.trim();
-    const declarationOk =
-      mgmt.selectedMode !== "surprise" ||
-      $("mgmt-surprise-declaration-check")?.checked;
-    $("btn-save-delivery-email").disabled =
-      !email || !mgmt.selectedMode || !declarationOk;
+    const btn = $("btn-save-delivery-email");
+    if (!btn) return;
+    // Always clickable — saveDeliveryEmail shows clear errors if something is missing.
+    // (Disabled buttons + hover styling that matched "selected" blocked users from saving.)
+    btn.disabled = false;
+  }
+
+  function updateSurpriseDeclarationVisibility(surpriseAvailable) {
+    const declarationBlock = $("mgmt-surprise-declaration");
+    const declarationCheck = $("mgmt-surprise-declaration-check");
+    if (!declarationBlock) return;
+
+    const showDeclaration =
+      surpriseAvailable === true && mgmt.selectedMode === "surprise";
+
+    declarationBlock.hidden = !showDeclaration;
+    if (!showDeclaration && declarationCheck) {
+      declarationCheck.checked = false;
+    }
+    updateSaveButtonState();
   }
 
   function applySurpriseModeUi(capabilitySource) {
@@ -83,9 +112,7 @@
     const surpriseBtn = $("btn-manage-mode-surprise");
     const verifyBtn = $("btn-manage-mode-verify");
     const notice = $("mgmt-surprise-unavailable");
-    const declarationBlock = $("mgmt-surprise-declaration");
     const declarationText = $("mgmt-surprise-declaration-text");
-    const declarationCheck = $("mgmt-surprise-declaration-check");
     if (!surpriseBtn || !verifyBtn) return;
 
     const surpriseAvailable = caps.surprise_delivery_email_available === true;
@@ -94,8 +121,6 @@
       surpriseBtn.hidden = true;
       surpriseBtn.disabled = true;
       if (notice) notice.hidden = false;
-      if (declarationBlock) declarationBlock.hidden = true;
-      if (declarationCheck) declarationCheck.checked = false;
       if (mgmt.selectedMode === "surprise") {
         mgmt.selectedMode = "verify_now";
         document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
@@ -105,12 +130,11 @@
       surpriseBtn.hidden = false;
       surpriseBtn.disabled = false;
       if (notice) notice.hidden = true;
-      if (declarationBlock) declarationBlock.hidden = false;
       if (declarationText && caps.surprise_declaration_text) {
         declarationText.textContent = caps.surprise_declaration_text;
       }
     }
-    updateSaveButtonState();
+    updateSurpriseDeclarationVisibility(surpriseAvailable);
   }
 
   function formatDeliverySummaryDate(iso) {
@@ -145,7 +169,7 @@
     return fetch(window.LETTER_VAULT_API + path, {
       ...opts,
       headers,
-    }).then((r) => r.json().then((j) => ({ status: r.status, json: j })));
+    }).then(async (r) => parseApiResponse(r, await r.text()));
   }
 
   function showMgmtError(msg) {
@@ -200,7 +224,7 @@
 
   window.LvManage = {
     renderSuccessDeliveryBlock: function (slot) {
-      const block = $("success-delivery-block");
+      const block = $("success-email-block");
       if (!block) return;
       const hasEmail = Boolean(slot.has_delivery_email);
       block.innerHTML =
@@ -368,18 +392,22 @@
       mgmt.selectedMode = mode;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
       btn.classList.add("selected");
-      updateSaveButtonState();
+      updateSurpriseDeclarationVisibility(
+        deliveryCapabilitiesFrom(mgmt.deliveryCapabilities ?? window.LvVaultState)
+          .surprise_delivery_email_available === true,
+      );
     },
 
     saveDeliveryEmail: async function () {
       showMgmtError("");
+      const saveBtn = $("btn-save-delivery-email");
       const email = $("mgmt-delivery-email").value.trim();
       if (!email) {
         showMgmtError("Please enter a delivery email address.");
         return;
       }
       if (!mgmt.selectedMode) {
-        showMgmtError("Please choose how we should handle this address.");
+        showMgmtError("Please tap KEEP IT A SURPRISE or VERIFY THE ADDRESS NOW above.");
         return;
       }
       if (
@@ -387,6 +415,12 @@
         !$("mgmt-surprise-declaration-check")?.checked
       ) {
         showMgmtError("Please confirm the personal delivery declaration.");
+        return;
+      }
+      if (mgmt.authChannel === "vault" && !hasActiveVaultSession()) {
+        showMgmtError(
+          "Your Vault session expired. Go back, enter your access code again, then add delivery email.",
+        );
         return;
       }
 
@@ -397,41 +431,75 @@
         payload.surprise_personal_declaration_accepted = true;
       }
 
-      let res;
-      if (mgmt.authChannel === "vault" && hasActiveVaultSession()) {
-        res = await vaultApi("/v1/vault/delivery-email", {
-          method: "POST",
-          body: JSON.stringify({
-            public_letter_id: mgmt.letterId,
-            delivery_email: email,
-            ...payload,
-          }),
-        });
-      } else {
-        res = await mgmtApi("/v1/staging/management/delivery-email/request", {
-          method: "POST",
-          body: JSON.stringify({
-            new_delivery_email: email,
-            ...payload,
-          }),
-        });
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "SAVING…";
       }
 
-      if (res.status !== 200 || res.json.status !== "ok") {
-        showMgmtError(res.json.message || "We couldn't save that address. Please try again.");
-        return;
+      try {
+        let res;
+        if (mgmt.authChannel === "vault" && hasActiveVaultSession()) {
+          res = await vaultApi("/v1/vault/delivery-email", {
+            method: "POST",
+            body: JSON.stringify({
+              public_letter_id: mgmt.letterId,
+              delivery_email: email,
+              ...payload,
+            }),
+          });
+        } else {
+          res = await mgmtApi("/v1/staging/management/delivery-email/request", {
+            method: "POST",
+            body: JSON.stringify({
+              new_delivery_email: email,
+              ...payload,
+            }),
+          });
+        }
+
+        if (res.status !== 200 || res.json.status !== "ok") {
+          if (
+            res.json.error === "surprise_schema_not_ready" ||
+            res.json.error === "surprise_declaration_table_missing"
+          ) {
+            showMgmtError(
+              res.json.message ||
+                "Surprise delivery needs Supabase migrations 009 and 010. Open Supabase → SQL Editor, run the SQL from the chat, then try again.",
+            );
+            return;
+          }
+          showMgmtError(
+            res.json.message || "We couldn't save that address. Please try again.",
+          );
+          return;
+        }
+        $("mgmt-result-copy").textContent = res.json.message;
+        $("mgmt-result-detail").textContent =
+          mgmt.selectedMode === "surprise"
+            ? "The recipient will not be contacted until delivery day."
+            : "Check the new address for a verification email. The current address stays active until verification succeeds.";
+        showStep("step-manage-done");
+      } catch {
+        showMgmtError("Network error — please check your connection and try again.");
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = "SAVE DELIVERY EMAIL →";
+        }
       }
-      $("mgmt-result-copy").textContent = res.json.message;
-      $("mgmt-result-detail").textContent =
-        mgmt.selectedMode === "surprise"
-          ? "The recipient will not be contacted until delivery day."
-          : "Check the new address for a verification email. The current address stays active until verification succeeds.";
-      showStep("step-manage-done");
     },
   };
 
   $("btn-save-delivery-email")?.addEventListener("click", () => LvManage.saveDeliveryEmail());
-  $("mgmt-delivery-email")?.addEventListener("input", updateSaveButtonState);
+  ["input", "change", "keyup", "paste"].forEach(function (evt) {
+    $("mgmt-delivery-email")?.addEventListener(evt, function () {
+      if (evt === "paste") {
+        setTimeout(updateSaveButtonState, 0);
+      } else {
+        updateSaveButtonState();
+      }
+    });
+  });
   $("mgmt-surprise-declaration-check")?.addEventListener("change", updateSaveButtonState);
   $("btn-manage-done")?.addEventListener("click", () => showStep("step-entry"));
   $("btn-manage-mode-surprise")?.addEventListener("click", function () {

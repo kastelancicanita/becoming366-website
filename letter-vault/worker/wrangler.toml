@@ -34,6 +34,20 @@ vars = { VAULT_ENV = "production", LETTER_VAULT_UI_BASE_URL = "https://becoming3
 #   wrangler secret put LETTER_VAULT_STAGING_ADMIN_TOKEN --env staging
 #   wrangler secret put RESEND_API_KEY --env staging
 #   wrangler secret put RESEND_WEBHOOK_SECRET --env staging
+#
+# S6 — MailerSend (Surprise recipient delivery only; staging verify first):
+#   wrangler secret put MAILERSEND_API_TOKEN --env staging
+#   wrangler secret put MAILERSEND_SURPRISE_FROM_EMAIL --env staging
+#     Recommended value: letters@surprise.vault.becoming366.com (isolated subdomain; Resend stays on vault.becoming366.com)
+#   wrangler secret put MAILERSEND_SURPRISE_FROM_NAME --env staging   # optional; defaults to "The Letter Vault"
+#   wrangler secret put MAILERSEND_WEBHOOK_SECRET --env staging
+#   MailerSend webhook URL (staging): https://letter-vault-api-staging.kastelancic-anita.workers.dev/v1/webhooks/mailersend
+#
+# S6 production dry-run (names only — do NOT set until explicit launch approval):
+#   MAILERSEND_API_TOKEN, MAILERSEND_SURPRISE_FROM_EMAIL, MAILERSEND_SURPRISE_FROM_NAME,
+#   MAILERSEND_WEBHOOK_SECRET, SURPRISE_DELIVERY_ENABLED (must be exactly "true" to unlock Surprise)
+#   Production webhook URL: https://letter-vault-api-production.kastelancic-anita.workers.dev/v1/webhooks/mailersend
+#   Production cron: OFF. SURPRISE_DELIVERY_ENABLED: OFF.
 
 # Optional custom route after DNS setup (Phase 2+):
 # [env.staging]

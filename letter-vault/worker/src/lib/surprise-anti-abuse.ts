@@ -87,6 +87,10 @@ export async function isSurpriseSaveRateLimited(
   env: Env,
   bucketKey: string,
 ): Promise<boolean> {
+  // Staging QA: allow repeated Surprise save attempts during MailerSend verification (S6).
+  if (getVaultEnvironment(env) === "staging") {
+    return false;
+  }
   return isBucketRateLimited(
     env,
     bucketKey,

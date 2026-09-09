@@ -34,6 +34,7 @@ import {
 import { assertDummyPurchaserEmail } from "../lib/dummy-guard";
 import {
   customerApiEnvironmentGuard,
+  validateCustomerDeliveryEmail,
   validateCustomerPurchaserEmail,
 } from "../lib/production-data-guard";
 import {
@@ -344,7 +345,7 @@ export async function handleDeliveryEmailChangeRequest(
   }
 
   const newEmail = body.new_delivery_email?.trim().toLowerCase() ?? "";
-  const emailError = validateCustomerPurchaserEmail(env, newEmail);
+  const emailError = validateCustomerDeliveryEmail(env, newEmail);
   if (emailError) {
     return jsonResponse(
       { status: "error", error: "validation_failed", message: "Invalid request." },
@@ -371,7 +372,7 @@ export async function handleDeliveryEmailChangeRequest(
     }
 
     const mode = body.delivery_email_mode === "surprise" ? "surprise" : "verify_now";
-    return applyDeliveryEmailUpdate(env, request, letter, newEmail, mode, {
+    return await applyDeliveryEmailUpdate(env, request, letter, newEmail, mode, {
       surprisePersonalDeclarationAccepted:
         body.surprise_personal_declaration_accepted,
     });

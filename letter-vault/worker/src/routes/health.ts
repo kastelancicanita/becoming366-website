@@ -1,6 +1,10 @@
 import { checkDatabaseConnectivity } from "../db/supabase";
 import type { Env } from "../env";
 import { getVaultEnvironment } from "../env";
+import {
+  checkSurpriseDeliverySchema,
+  type SurpriseSchemaStatus,
+} from "../lib/surprise-schema";
 
 export interface HealthResponse {
   status: "ok";
@@ -9,6 +13,7 @@ export interface HealthResponse {
   database: "connected" | "not_configured" | "error";
   schema_version?: string;
   database_error?: string;
+  surprise_delivery_schema?: SurpriseSchemaStatus;
 }
 
 export async function handleHealth(env: Env): Promise<Response> {
@@ -28,6 +33,13 @@ export async function handleHealth(env: Env): Promise<Response> {
 
   if (db.state === "connected") {
     body.schema_version = db.schema_version;
+    if (getVaultEnvironment(env) === "staging") {
+      try {
+        body.surprise_delivery_schema = await checkSurpriseDeliverySchema(env);
+      } catch {
+        /* optional diagnostic */
+      }
+    }
   }
 
   if (db.state === "error") {

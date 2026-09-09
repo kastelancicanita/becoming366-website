@@ -31,6 +31,24 @@ export function validateCustomerPurchaserEmail(
   return "environment_not_supported";
 }
 
+/** Delivery/recipient address — not purchaser login email. */
+export function validateCustomerDeliveryEmail(
+  env: Env,
+  email: string,
+): string | null {
+  const normalized = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    return "Invalid email address.";
+  }
+  if (getVaultEnvironment(env) === "staging") {
+    return null;
+  }
+  if (getVaultEnvironment(env) === "production") {
+    return assertProductionPurchaserEmail(email);
+  }
+  return "environment_not_supported";
+}
+
 export function assertProductionPurchaserEmail(email: string): string | null {
   const normalized = email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {

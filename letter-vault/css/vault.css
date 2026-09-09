@@ -287,9 +287,15 @@ textarea.letter-paper {
   font: inherit;
 }
 
-.choice-btn:hover, .choice-btn.selected {
+.choice-btn:hover:not(.selected) {
   border-color: var(--accent);
-  background: rgba(120, 150, 159, 0.08);
+  background: rgba(120, 150, 159, 0.05);
+}
+
+.choice-btn.selected {
+  border: 2px solid var(--accent);
+  background: rgba(120, 150, 159, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(120, 150, 159, 0.15);
 }
 
 .slot-list { list-style: none; display: grid; gap: 12px; }

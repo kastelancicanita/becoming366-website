@@ -151,5 +151,6 @@ describe("vault session delivery email UI regression", () => {
     expect(manageJs).toContain("applySurpriseModeUi");
     expect(manageJs).toContain("mgmt-surprise-unavailable");
     expect(manageJs).toContain("mgmt-surprise-declaration");
+    expect(manageJs).toContain("updateSurpriseDeclarationVisibility");
   });
 });

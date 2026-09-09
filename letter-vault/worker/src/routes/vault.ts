@@ -32,11 +32,12 @@ import {
   type RecipientContext,
   type TemplateConfig,
 } from "../lib/collection-slots";
-import { assertDummyPurchaserEmail } from "../lib/dummy-guard";
 import {
   customerApiEnvironmentGuard,
+  validateCustomerDeliveryEmail,
   validateCustomerPurchaserEmail,
 } from "../lib/production-data-guard";
+import { getVaultEnvironment } from "../env";
 import {
   applyDeliveryEmailUpdate,
   customerDeliveryEmailCapabilities,
@@ -118,7 +119,7 @@ export async function handleVaultEnter(request: Request, env: Env): Promise<Resp
   const emailRaw = body.purchaser_email?.trim() ?? "";
   if (!accessCode || !emailRaw) return jsonResponse(VAULT_DENIED, 401);
 
-  const emailError = assertDummyPurchaserEmail(emailRaw);
+  const emailError = validateCustomerPurchaserEmail(env, emailRaw);
   if (emailError) return jsonResponse(VAULT_DENIED, 401);
 
   try {
@@ -717,7 +718,7 @@ export async function handleVaultDeliveryEmailRequest(
 
   const publicLetterId = body.public_letter_id?.trim() ?? "";
   const email = body.delivery_email?.trim().toLowerCase() ?? "";
-  const emailError = validateCustomerPurchaserEmail(env, email);
+  const emailError = validateCustomerDeliveryEmail(env, email);
   if (!publicLetterId || emailError) {
     return jsonResponse(
       { status: "error", message: emailError || "Invalid request." },
@@ -737,13 +738,38 @@ export async function handleVaultDeliveryEmailRequest(
 
     const mode =
       body.delivery_email_mode === "surprise" ? "surprise" : "verify_now";
-    return applyDeliveryEmailUpdate(env, request, letter, email, mode, {
+
+    if (mode === "surprise" && getVaultEnvironment(env) === "staging") {
+      const { checkSurpriseDeliverySchema } = await import("../lib/surprise-schema");
+      const schema = await checkSurpriseDeliverySchema(env);
+      if (!schema.ready) {
+        return jsonResponse(
+          {
+            status: "error",
+            error: "surprise_schema_not_ready",
+            message:
+              "Surprise delivery is not set up on staging yet. Run migrations 009 and 010 in Supabase SQL Editor, then try again.",
+            migration_hint: schema.migration_hint,
+          },
+          503,
+        );
+      }
+    }
+
+    return await applyDeliveryEmailUpdate(env, request, letter, email, mode, {
       surprisePersonalDeclarationAccepted:
         body.surprise_personal_declaration_accepted,
     });
-  } catch {
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "delivery_email_save_failed";
     return jsonResponse(
-      { status: "error", message: "We couldn't save that address. Please try again." },
+      {
+        status: "error",
+        message: "We couldn't save that address. Please try again.",
+        error: detail.includes("letter_vault_surprise_declarations")
+          ? "surprise_declaration_table_missing"
+          : "delivery_email_save_failed",
+      },
       500,
     );
   }

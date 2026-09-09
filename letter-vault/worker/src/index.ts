@@ -9,6 +9,9 @@ import {
   handleSchedulerStatus,
   handleSealScheduledLetter,
   handleSimulateStaleLease,
+  handleStagingForceSurpriseDelivery,
+  handleStagingBackdateDelivery,
+  handleStagingLetterByPublicId,
 } from "./routes/delivery";
 import {
   handleEmailIdempotencyCheck,
@@ -166,6 +169,24 @@ const worker = {
       request.method === "GET"
     ) {
       return handleSchedulerStatus(request, env);
+    }
+    if (
+      pathname === "/v1/staging/surprise/force-set-delivery" &&
+      request.method === "POST"
+    ) {
+      return handleStagingForceSurpriseDelivery(request, env);
+    }
+    if (
+      pathname === "/v1/staging/letters/backdate-delivery" &&
+      request.method === "POST"
+    ) {
+      return handleStagingBackdateDelivery(request, env);
+    }
+    if (
+      pathname === "/v1/staging/letters/by-public-id" &&
+      request.method === "GET"
+    ) {
+      return handleStagingLetterByPublicId(request, env);
     }
     const letterStatusMatch = pathname.match(
       /^\/v1\/staging\/letters\/status\/([0-9a-f-]{36})$/,

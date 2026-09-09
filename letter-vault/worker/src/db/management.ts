@@ -265,7 +265,7 @@ export async function activateSurpriseDeliveryEmail(
   newEmail: string,
 ): Promise<void> {
   const now = new Date().toISOString();
-  await client(env)
+  const { error } = await client(env)
     .from("letter_vault_letters")
     .update({
       recipient_email: newEmail,
@@ -275,6 +275,8 @@ export async function activateSurpriseDeliveryEmail(
       updated_at: now,
     })
     .eq("id", letterId);
+
+  if (error) throw new Error(error.message);
 
   await auditDeliveryEmail(env, letterId, "delivery_email_surprise_set", newEmail);
 }

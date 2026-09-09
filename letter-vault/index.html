@@ -175,12 +175,6 @@
         <p class="vault-hint" id="mgmt-surprise-unavailable" hidden>
           Keep It a Surprise is not available yet while we finalize compliant surprise delivery. Please verify the delivery address now so your letter can be delivered when the day arrives.
         </p>
-        <div id="mgmt-surprise-declaration" class="vault-sub" hidden>
-          <label class="mgmt-declaration-label">
-            <input type="checkbox" id="mgmt-surprise-declaration-check">
-            <span id="mgmt-surprise-declaration-text"></span>
-          </label>
-        </div>
         <div class="choice-grid">
           <button type="button" class="choice-btn mgmt-mode-btn" id="btn-manage-mode-surprise">
             <span class="choice-label">KEEP IT A SURPRISE</span>
@@ -191,7 +185,13 @@
             <span class="choice-hint">Send a simple verification email to this address now. Best when the recipient knows about the letter.</span>
           </button>
         </div>
-        <button type="button" class="btn" id="btn-save-delivery-email" disabled>SAVE DELIVERY EMAIL →</button>
+        <div id="mgmt-surprise-declaration" class="vault-sub" hidden>
+          <label class="mgmt-declaration-label">
+            <input type="checkbox" id="mgmt-surprise-declaration-check">
+            <span id="mgmt-surprise-declaration-text"></span>
+          </label>
+        </div>
+        <button type="button" class="btn" id="btn-save-delivery-email">SAVE DELIVERY EMAIL →</button>
         <p class="vault-footer"><button type="button" class="link-btn" id="manage-delivery-back">← Back</button></p>
       </section>
 
