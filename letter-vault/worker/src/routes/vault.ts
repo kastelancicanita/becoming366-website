@@ -34,6 +34,14 @@ import {
 } from "../lib/collection-slots";
 import { assertDummyPurchaserEmail } from "../lib/dummy-guard";
 import {
+  customerApiEnvironmentGuard,
+  validateCustomerPurchaserEmail,
+} from "../lib/production-data-guard";
+import {
+  applyDeliveryEmailUpdate,
+  customerDeliveryEmailCapabilities,
+} from "../lib/delivery-email-update";
+import {
   clientIp,
   hashBucketKey,
   isRateLimited,
@@ -41,6 +49,9 @@ import {
 } from "../lib/rate-limit";
 import { stagingOnlyResponse } from "../lib/staging-guard";
 import { jsonResponse } from "../lib/management-response";
+import {
+  fetchLetterByPublicIdForEntitlement,
+} from "../db/letters";
 
 export const VAULT_SESSION_HEADER = "X-Letter-Vault-Session";
 
@@ -90,7 +101,7 @@ function entitlementActive(row: { status: string; letters_used: number; letters_
 
 /** POST /v1/vault/enter — verify access code; does NOT consume. */
 export async function handleVaultEnter(request: Request, env: Env): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const limited = await guardVaultAttempt(request, env, "vault_enter");
@@ -187,7 +198,7 @@ function publicSlotView(slot: {
 
 /** GET /v1/vault/state */
 export async function handleVaultState(request: Request, env: Env): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const session = await requireVaultSession(request, env);
@@ -219,6 +230,7 @@ export async function handleVaultState(request: Request, env: Env): Promise<Resp
           }
         : null,
       slots: slots.map(publicSlotView),
+      ...customerDeliveryEmailCapabilities(env),
       letter_body_in_response: false,
     });
   } catch {
@@ -231,7 +243,7 @@ export async function handleVaultCollectionMilestoneOptions(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const session = await requireVaultSession(request, env);
@@ -278,7 +290,7 @@ export async function handleVaultCollectionRecurringPreview(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const session = await requireVaultSession(request, env);
@@ -328,7 +340,7 @@ export async function handleVaultCollectionInit(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const session = await requireVaultSession(request, env);
@@ -465,7 +477,7 @@ export async function handleVaultSinglePrepare(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const session = await requireVaultSession(request, env);
@@ -505,7 +517,7 @@ export async function handleVaultSlotUpdate(
   env: Env,
   slotId: string,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const session = await requireVaultSession(request, env);
@@ -546,7 +558,7 @@ export async function handleVaultSlotSeal(
   env: Env,
   slotId: string,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const session = await requireVaultSession(request, env);
@@ -674,6 +686,59 @@ export async function handleVaultSlotSeal(
     }
     return jsonResponse(
       { status: "error", message: "We couldn't seal your letter. Please try again." },
+      500,
+    );
+  }
+}
+
+/** POST /v1/vault/delivery-email — add/change delivery email during active Vault session. */
+export async function handleVaultDeliveryEmailRequest(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const blocked = customerApiEnvironmentGuard(env);
+  if (blocked) return blocked;
+
+  const session = await requireVaultSession(request, env);
+  if (session instanceof Response) return session;
+
+  let body: {
+    public_letter_id?: string;
+    delivery_email?: string;
+    delivery_email_mode?: "surprise" | "verify_now";
+  };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return jsonResponse({ status: "error", message: "Invalid request." }, 400);
+  }
+
+  const publicLetterId = body.public_letter_id?.trim() ?? "";
+  const email = body.delivery_email?.trim().toLowerCase() ?? "";
+  const emailError = validateCustomerPurchaserEmail(env, email);
+  if (!publicLetterId || emailError) {
+    return jsonResponse(
+      { status: "error", message: emailError || "Invalid request." },
+      400,
+    );
+  }
+
+  try {
+    const letter = await fetchLetterByPublicIdForEntitlement(
+      env,
+      publicLetterId,
+      session.entitlement_id,
+    );
+    if (!letter) {
+      return jsonResponse({ status: "error", message: "Invalid request." }, 404);
+    }
+
+    const mode =
+      body.delivery_email_mode === "surprise" ? "surprise" : "verify_now";
+    return applyDeliveryEmailUpdate(env, request, letter, email, mode);
+  } catch {
+    return jsonResponse(
+      { status: "error", message: "We couldn't save that address. Please try again." },
       500,
     );
   }

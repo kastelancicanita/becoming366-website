@@ -27,6 +27,10 @@ function stagingEnv(overrides: Partial<Env> = {}): Env {
   };
 }
 
+vi.mock("../src/db/service-client", () => ({
+  createServiceSupabaseClient: vi.fn(),
+}));
+
 vi.mock("../src/db/management", () => ({
   validateManagementToken: vi.fn(async () => ({
     id: "tok-row",

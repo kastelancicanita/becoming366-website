@@ -539,7 +539,7 @@
           emailBtn.className = "link-btn";
           emailBtn.textContent = LvManage.deliveryEmailActionLabel(slot);
           emailBtn.addEventListener("click", () => {
-            LvManage.requestSecureLink(slot.public_letter_id);
+            LvManage.openDeliveryEmail(slot.public_letter_id, slot);
           });
           wrap.appendChild(emailBtn);
         }

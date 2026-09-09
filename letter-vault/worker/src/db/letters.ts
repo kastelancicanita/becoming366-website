@@ -144,6 +144,23 @@ export async function fetchLetterById(
   return (data as LetterRow | null) ?? null;
 }
 
+export async function fetchLetterByPublicIdForEntitlement(
+  env: Env,
+  publicLetterId: string,
+  entitlementId: string,
+): Promise<LetterRow | null> {
+  const { data, error } = await client(env)
+    .from("letter_vault_letters")
+    .select("*")
+    .eq("public_letter_id", publicLetterId.toUpperCase())
+    .eq("entitlement_ref", entitlementId)
+    .eq("status", "SEALED")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return (data as LetterRow | null) ?? null;
+}
+
 export async function fetchLetterSummary(
   env: Env,
   id: string,

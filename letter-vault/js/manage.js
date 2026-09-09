@@ -6,10 +6,71 @@
     letterId: null,
     metadata: null,
     selectedMode: null,
+    authChannel: null,
   };
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function vaultApi(path, opts) {
+    const headers = {
+      "Content-Type": "application/json",
+      ...(opts && opts.headers),
+    };
+    if (window.LvVaultState?.session) {
+      headers["X-Letter-Vault-Session"] = window.LvVaultState.session;
+    }
+    return fetch(window.LETTER_VAULT_API + path, {
+      ...opts,
+      headers,
+    }).then((r) => r.json().then((j) => ({ status: r.status, json: j })));
+  }
+
+  function hasActiveVaultSession() {
+    return Boolean(window.LvVaultState?.session);
+  }
+
+  function applySurpriseModeUi() {
+    const surpriseBtn = $("btn-manage-mode-surprise");
+    const verifyBtn = $("btn-manage-mode-verify");
+    const notice = $("mgmt-surprise-unavailable");
+    const isProduction = window.LETTER_VAULT_UI_ENV === "production";
+    if (!surpriseBtn || !verifyBtn) return;
+    if (isProduction) {
+      surpriseBtn.hidden = true;
+      surpriseBtn.disabled = true;
+      if (notice) notice.hidden = false;
+      mgmt.selectedMode = "verify_now";
+      document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
+      verifyBtn.classList.add("selected");
+      $("btn-save-delivery-email").disabled = !$("mgmt-delivery-email")?.value.trim();
+    } else {
+      surpriseBtn.hidden = false;
+      surpriseBtn.disabled = false;
+      if (notice) notice.hidden = true;
+    }
+  }
+
+  function formatDeliverySummaryDate(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  }
+
+  function renderDeliverySummary(letterId, deliveryAt, deliveryEmailMasked) {
+    $("mgmt-letter-summary").innerHTML =
+      "<p><strong>Letter ID</strong> " +
+      (letterId || "—") +
+      "</p><p><strong>Delivery</strong> " +
+      formatDeliverySummaryDate(deliveryAt) +
+      "</p><p><strong>Current delivery email</strong> " +
+      (deliveryEmailMasked || "Not added yet") +
+      "</p>";
   }
 
   function mgmtApi(path, opts) {
@@ -77,6 +138,7 @@
     mgmt.session = null;
     mgmt.letterId = null;
     mgmt.metadata = null;
+    mgmt.authChannel = null;
     try {
       sessionStorage.removeItem(MGMT_STORE_KEY);
     } catch (_) {
@@ -127,8 +189,35 @@
         (hasEmail ? "CHANGE DELIVERY EMAIL →" : "ADD DELIVERY EMAIL →") +
         "</button>";
       $("success-delivery-action")?.addEventListener("click", () => {
-        LvManage.requestSecureLink(slot.public_letter_id);
+        LvManage.openDeliveryEmail(slot.public_letter_id, slot);
       });
+    },
+
+    openDeliveryEmail: function (letterId, slot) {
+      if (hasActiveVaultSession()) {
+        LvManage.openVaultDeliveryEmail(letterId, slot);
+        return;
+      }
+      LvManage.requestSecureLink(letterId);
+    },
+
+    openVaultDeliveryEmail: function (letterId, slot) {
+      showMgmtError("");
+      mgmt.authChannel = "vault";
+      mgmt.letterId = letterId;
+      mgmt.session = null;
+      mgmt.metadata = null;
+      renderDeliverySummary(
+        letterId,
+        slot?.delivery_at || null,
+        slot?.has_delivery_email ? slot.delivery_email_masked : null,
+      );
+      $("mgmt-delivery-email").value = "";
+      mgmt.selectedMode = null;
+      document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
+      $("btn-save-delivery-email").disabled = true;
+      applySurpriseModeUi();
+      showStep("step-manage-delivery");
     },
 
     requestSecureLink: async function (letterId) {
@@ -210,6 +299,7 @@
 
     openManagementSession: async function () {
       showMgmtError("");
+      mgmt.authChannel = "management";
       const res = await mgmtApi("/v1/staging/management/session");
       if (res.status !== 200 || res.json.status !== "ok") {
         clearMgmtSession();
@@ -237,6 +327,7 @@
       mgmt.selectedMode = null;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
       $("btn-save-delivery-email").disabled = true;
+      applySurpriseModeUi();
       persistMgmtSession();
       showStep("step-manage-delivery");
     },
@@ -259,13 +350,27 @@
         showMgmtError("Please choose how we should handle this address.");
         return;
       }
-      const res = await mgmtApi("/v1/staging/management/delivery-email/request", {
-        method: "POST",
-        body: JSON.stringify({
-          new_delivery_email: email,
-          delivery_email_mode: mgmt.selectedMode,
-        }),
-      });
+
+      let res;
+      if (mgmt.authChannel === "vault" && hasActiveVaultSession()) {
+        res = await vaultApi("/v1/vault/delivery-email", {
+          method: "POST",
+          body: JSON.stringify({
+            public_letter_id: mgmt.letterId,
+            delivery_email: email,
+            delivery_email_mode: mgmt.selectedMode,
+          }),
+        });
+      } else {
+        res = await mgmtApi("/v1/staging/management/delivery-email/request", {
+          method: "POST",
+          body: JSON.stringify({
+            new_delivery_email: email,
+            delivery_email_mode: mgmt.selectedMode,
+          }),
+        });
+      }
+
       if (res.status !== 200 || res.json.status !== "ok") {
         showMgmtError(res.json.message || "We couldn't save that address. Please try again.");
         return;

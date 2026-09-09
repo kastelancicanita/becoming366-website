@@ -22,6 +22,10 @@ vars = { VAULT_ENV = "staging", LETTER_VAULT_UI_BASE_URL = "https://letter-vault
 [env.staging.triggers]
 crons = ["* * * * *"]
 
+[env.production]
+name = "letter-vault-api-production"
+vars = { VAULT_ENV = "production", LETTER_VAULT_UI_BASE_URL = "https://becoming366.com" }
+
 # Secrets (set per environment, never in this file):
 #   wrangler secret put SUPABASE_URL --env staging
 #   wrangler secret put SUPABASE_SERVICE_ROLE_KEY --env staging

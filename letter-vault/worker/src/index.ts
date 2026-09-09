@@ -44,6 +44,7 @@ import {
   handleVaultCollectionInit,
   handleVaultCollectionMilestoneOptions,
   handleVaultCollectionRecurringPreview,
+  handleVaultDeliveryEmailRequest,
   handleVaultEnter,
   handleVaultSinglePrepare,
   handleVaultSlotSeal,
@@ -286,6 +287,12 @@ const worker = {
     }
     if (pathname === "/v1/vault/single/prepare" && request.method === "POST") {
       return respond(handleVaultSinglePrepare(request, env));
+    }
+    if (
+      pathname === "/v1/vault/delivery-email" &&
+      request.method === "POST"
+    ) {
+      return respond(handleVaultDeliveryEmailRequest(request, env));
     }
     if (pathname === "/v1/vault/unicode-test" && request.method === "POST") {
       return respond(handleVaultUnicodeTest(request, env));

@@ -1,7 +1,5 @@
-import { generateSecureToken, maskEmail } from "../crypto/management-token";
+﻿import { generateSecureToken, maskEmail } from "../crypto/management-token";
 import {
-  auditDeliveryEmail,
-  activateSurpriseDeliveryEmail,
   createDeliveryEmailChange,
   createManagementSession,
   createManagementToken,
@@ -25,11 +23,16 @@ import {
 } from "../email/templates/management";
 import { sendViaResend } from "../email/resend-client";
 import type { Env } from "../env";
+import { applyDeliveryEmailUpdate } from "../lib/delivery-email-update";
 import {
   accessDeniedResponse,
   rateLimitedResponse,
 } from "../lib/access-response";
 import { assertDummyPurchaserEmail } from "../lib/dummy-guard";
+import {
+  customerApiEnvironmentGuard,
+  validateCustomerPurchaserEmail,
+} from "../lib/production-data-guard";
 import {
   jsonResponse,
   managementDeniedResponse,
@@ -43,14 +46,13 @@ import {
 } from "../lib/rate-limit";
 import { stagingOnlyResponse } from "../lib/staging-guard";
 import { buildManagementUiActivateUrl } from "../lib/management-link";
-import { createClient } from "@supabase/supabase-js";
+import { createServiceSupabaseClient } from "../db/service-client";
+import { requireAdminToken } from "../lib/env-secrets";
 
 const SESSION_HEADER = "X-Letter-Vault-Management-Session";
 
 function requireStagingAdmin(request: Request, env: Env): boolean {
-  const token = env.LETTER_VAULT_STAGING_ADMIN_TOKEN;
-  if (!token) return false;
-  return request.headers.get("X-Letter-Vault-Staging-Admin") === token;
+  return requireAdminToken(request, env);
 }
 
 function managementBaseUrl(request: Request): string {
@@ -78,9 +80,7 @@ async function guardManagementAttempt(
 }
 
 function supabase(env: Env) {
-  return createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  return createServiceSupabaseClient(env);
 }
 
 /** Step 1: Request management access (generic response always). */
@@ -88,7 +88,7 @@ export async function handleManagementRequest(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const limited = await guardManagementAttempt(
@@ -112,7 +112,7 @@ export async function handleManagementRequest(
     return managementRequestResponse();
   }
 
-  const emailError = assertDummyPurchaserEmail(purchaserEmail);
+  const emailError = validateCustomerPurchaserEmail(env, purchaserEmail);
   if (emailError) {
     return managementRequestResponse();
   }
@@ -162,12 +162,12 @@ async function invalidateUnusedManagementTokens(
     .is("used_at", null);
 }
 
-/** Step 2a: POST activate with token → session JSON (API / tests). */
+/** Step 2a: POST activate with token ΓåÆ session JSON (API / tests). */
 export async function handleManagementActivatePost(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const limited = await guardManagementAttempt(
@@ -195,7 +195,7 @@ export async function handleManagementActivateGet(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const limited = await guardManagementAttempt(
@@ -292,7 +292,7 @@ export async function handleManagementSessionView(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const rawSession = sessionFromRequest(request);
@@ -322,7 +322,7 @@ export async function handleDeliveryEmailChangeRequest(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const rawSession = sessionFromRequest(request);
@@ -339,10 +339,10 @@ export async function handleDeliveryEmailChangeRequest(
   }
 
   const newEmail = body.new_delivery_email?.trim().toLowerCase() ?? "";
-  const emailError = assertDummyPurchaserEmail(newEmail);
+  const emailError = validateCustomerPurchaserEmail(env, newEmail);
   if (emailError) {
     return jsonResponse(
-      { status: "error", error: "validation_failed", message: emailError },
+      { status: "error", error: "validation_failed", message: "Invalid request." },
       400,
     );
   }
@@ -366,53 +366,7 @@ export async function handleDeliveryEmailChangeRequest(
     }
 
     const mode = body.delivery_email_mode === "surprise" ? "surprise" : "verify_now";
-
-    if (mode === "surprise") {
-      await activateSurpriseDeliveryEmail(env, letter.id, newEmail);
-      return jsonResponse({
-        status: "ok",
-        phase: "phase6",
-        message:
-          "Delivery email saved. The recipient will not be contacted until delivery day.",
-        pending_verification: false,
-        delivery_email_mode: "surprise",
-        active_delivery_email_masked: maskEmail(newEmail),
-        letter_body_in_response: false,
-      });
-    }
-
-    const rawVerifyToken = generateSecureToken();
-    const previousActive = letter.recipient_email;
-    await createDeliveryEmailChange(
-      env,
-      letter.id,
-      newEmail,
-      rawVerifyToken,
-      previousActive,
-    );
-
-    await auditDeliveryEmail(env, letter.id, "delivery_email_change_requested", newEmail);
-
-    const verifyUrl = `${managementBaseUrl(request)}/v1/staging/management/delivery-email/confirm?token=${encodeURIComponent(rawVerifyToken)}`;
-    await sendViaResend(env, {
-      to: newEmail,
-      subject: buildDeliveryEmailVerifySubject(),
-      html: buildDeliveryEmailVerifyHtml(verifyUrl),
-      text: buildDeliveryEmailVerifyText(verifyUrl),
-    });
-
-    return jsonResponse({
-      status: "ok",
-      phase: "phase6",
-      message:
-        "Verification sent to the new address. The current delivery email remains active until verification succeeds.",
-      pending_verification: true,
-      active_delivery_email_masked: letter.recipient_email
-        ? maskEmail(letter.recipient_email)
-        : null,
-      delivery_email_mode: "verified",
-      letter_body_in_response: false,
-    });
+    return applyDeliveryEmailUpdate(env, request, letter, newEmail, mode);
   } catch {
     return managementDeniedResponse();
   }
@@ -423,7 +377,7 @@ export async function handleDeliveryEmailConfirmPost(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   let body: { token?: string };
@@ -443,7 +397,7 @@ export async function handleDeliveryEmailConfirmGet(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  const blocked = stagingOnlyResponse(env);
+  const blocked = customerApiEnvironmentGuard(env);
   if (blocked) return blocked;
 
   const url = new URL(request.url);
