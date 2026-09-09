@@ -63,14 +63,6 @@
     el.hidden = false;
   }
 
-  function browserTimezone() {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    } catch (e) {
-      return "UTC";
-    }
-  }
-
   function formatWrittenDate(iso) {
     if (!iso) return "";
     const d = new Date(iso);
@@ -466,7 +458,6 @@
       }
       body.selected_milestone_ages = [...state.selectedMilestoneAges];
     }
-    body.delivery_timezone = browserTimezone();
     const res = await api("/v1/vault/collection/init", {
       method: "POST",
       body: JSON.stringify(body),
@@ -510,7 +501,7 @@
             : "";
       meta.innerHTML =
         "<strong>" +
-        (slot.slot_status === "SEALED" ? "≡ƒöÆ " : "") +
+        (slot.slot_status === "SEALED" ? "🔒 " : "") +
         (slot.moment_label || "Letter " + slot.slot_index) +
         "</strong><span>" +
         dateLine +
@@ -521,9 +512,9 @@
         btn.type = "button";
         btn.className = "link-btn";
         if (state.mechanism === "FREE_COLLECTION") {
-          btn.textContent = slot.delivery_at ? "WRITE LETTER ΓåÆ" : "CHOOSE A MOMENT ΓåÆ";
+          btn.textContent = slot.delivery_at ? "WRITE LETTER →" : "CHOOSE A MOMENT →";
         } else {
-          btn.textContent = "WRITE LETTER ΓåÆ";
+          btn.textContent = "WRITE LETTER →";
         }
         btn.addEventListener("click", () => {
           showError("");
@@ -548,7 +539,7 @@
           emailBtn.className = "link-btn";
           emailBtn.textContent = LvManage.deliveryEmailActionLabel(slot);
           emailBtn.addEventListener("click", () => {
-            LvManage.requestSecureLink(slot.public_letter_id);
+            LvManage.openDeliveryEmail(slot.public_letter_id, slot);
           });
           wrap.appendChild(emailBtn);
         }
@@ -751,7 +742,7 @@
   function goWrite() {
     const moment =
       state.currentSlot?.moment_label && state.flowMode === "collection-write"
-        ? state.currentSlot.moment_label + " ┬╖ "
+        ? state.currentSlot.moment_label + " · "
         : "";
     $("write-delivery-note").textContent =
       moment +
@@ -833,7 +824,6 @@
       body: JSON.stringify({
         letter_text: text,
         delivery_at: state.deliveryAt,
-        delivery_timezone: browserTimezone(),
         recipient_context: recipientContext(),
         moment_label: state.currentSlot.moment_label,
       }),

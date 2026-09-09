@@ -1,7 +1,6 @@
-﻿/**
+/**
  * Letter Vault UI API routing (8B-2).
- * Preview/staging Pages ΓåÆ staging Worker. becoming366.com ΓåÆ production Worker.
- * Phase 7 UX unchanged; only the API base URL is selected by hostname.
+ * Preview/staging Pages → staging Worker. becoming366.com → production Worker.
  */
 (function () {
   "use strict";
