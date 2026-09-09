@@ -25,6 +25,7 @@ import {
   buildFutureDeliverySubject,
   buildFutureDeliveryText,
 } from "../email/templates/future-delivery";
+import { futureLetterDeliveryIdempotencyKey } from "../lib/idempotency-keys";
 import {
   evaluateSurpriseSendGate,
   SURPRISE_SEND_DEFERRED_CATEGORY,
@@ -132,7 +133,7 @@ export async function processClaimedLetter(
       deliveryDateFormatted: deliveryFormatted,
     });
 
-    const idempotencyKey = `DUMMY-DELIVERY-${letter.id}`;
+    const idempotencyKey = futureLetterDeliveryIdempotencyKey(letter.id);
     const { row: outbound, duplicate } = await insertOutboundQueued(env, {
       idempotency_key: idempotencyKey,
       recipient_email: letter.recipient_email!,
