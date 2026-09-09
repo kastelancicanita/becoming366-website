@@ -35,7 +35,7 @@ export function isSurpriseMode(letter: {
 
 /**
  * Whether the worker may send the letter body to the recipient on delivery day.
- * S1: production Surprise remains blocked (MailerSend routing lands in S2).
+ * S2: staging/dev Surprise routes to MailerSend; production Surprise stays blocked until S5.
  */
 export function evaluateRecipientBodyDelivery(
   env: Env,
@@ -53,7 +53,7 @@ export function evaluateRecipientBodyDelivery(
     if (getVaultEnvironment(env) === "production") {
       return { allowed: false, reason: "surprise_resend_blocked_production" };
     }
-    return { allowed: true, providerId: "resend" };
+    return { allowed: true, providerId: "mailersend" };
   }
 
   if (!letter.delivery_email_verified_at) {

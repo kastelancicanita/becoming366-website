@@ -37,7 +37,7 @@ describe("8B-10 surprise delivery policy", () => {
     );
   });
 
-  it("blocks production Surprise recipient body delivery (S1 — routing in S2)", () => {
+  it("blocks production Surprise recipient body delivery", () => {
     const decision = evaluateRecipientBodyDelivery(
       env({ VAULT_ENV: "production" }),
       surpriseLetter,
@@ -48,9 +48,23 @@ describe("8B-10 surprise delivery policy", () => {
     });
   });
 
-  it("allows staging Surprise recipient body via Resend until S2", () => {
+  it("routes staging Surprise recipient body to MailerSend (S2)", () => {
     const decision = evaluateRecipientBodyDelivery(env(), surpriseLetter);
-    expect(decision).toEqual({ allowed: true, providerId: "resend" });
+    expect(decision).toEqual({ allowed: true, providerId: "mailersend" });
+  });
+
+  it("routes verified and verify_now recipient body to Resend", () => {
+    expect(evaluateRecipientBodyDelivery(env(), verifiedLetter)).toEqual({
+      allowed: true,
+      providerId: "resend",
+    });
+    expect(
+      evaluateRecipientBodyDelivery(env(), {
+        recipient_email: "child@example.com",
+        delivery_email_verified_at: "2026-01-01T00:00:00.000Z",
+        delivery_email_mode: "verify_now",
+      }),
+    ).toEqual({ allowed: true, providerId: "resend" });
   });
 
   it("allows production verified recipient body via Resend", () => {

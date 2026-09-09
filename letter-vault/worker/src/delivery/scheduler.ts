@@ -5,7 +5,6 @@ import {
   fetchDueLetterCandidates,
   finishDeliveryAttempt,
   finishSchedulerRun,
-  hasVerifiedDeliveryEmail,
   letterToEnvelope,
   recoverStaleProcessingLetters,
   startDeliveryAttempt,
@@ -15,13 +14,17 @@ import {
 } from "../db/letters";
 import { markAwaitingDeliveryEmail } from "../db/management";
 import { insertOutboundQueued, markOutboundSendResult, markOutboundSending } from "../db/email-store";
+import { getDeliveryProvider } from "../email/delivery-provider";
 import { formatDeliveryDate } from "../email/templates/seal-confirmation";
 import {
   buildFutureDeliveryHtml,
   buildFutureDeliverySubject,
   buildFutureDeliveryText,
 } from "../email/templates/future-delivery";
-import { sendViaResend } from "../email/resend-client";
+import {
+  evaluateRecipientBodyDelivery,
+  type DeliveryProviderId,
+} from "../lib/surprise-delivery-policy";
 import type { Env } from "../env";
 
 export interface SchedulerResult {
@@ -30,6 +33,7 @@ export interface SchedulerResult {
   letters_claimed: number;
   letters_sent: number;
   letters_failed: number;
+  letters_blocked_compliance: number;
   stale_recovered: number;
   status: "completed" | "failed";
 }
@@ -38,10 +42,12 @@ function workerInstanceId(): string {
   return `worker-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function processClaimedLetter(
+/** Exported for S2 routing tests — future-letter delivery only. */
+export async function processClaimedLetter(
   env: Env,
   letter: LetterRow,
   masterKey: string,
+  providerId: DeliveryProviderId,
 ): Promise<"sent" | "failed"> {
   const attemptNumber = letter.attempt_count + 1;
   const attempt = await startDeliveryAttempt(env, letter.id, attemptNumber);
@@ -123,11 +129,13 @@ async function processClaimedLetter(
 
     if (outbound) await markOutboundSending(env, outbound.id);
 
-    const sendResult = await sendViaResend(env, {
+    const provider = getDeliveryProvider(providerId);
+    const sendResult = await provider.sendFutureDelivery(env, {
       to: letter.recipient_email!,
       subject: buildFutureDeliverySubject(),
       html,
       text,
+      letterId: letter.id,
     });
 
     if (outbound) {
@@ -141,13 +149,13 @@ async function processClaimedLetter(
     if (!sendResult.ok) {
       await finishDeliveryAttempt(env, attempt.id, {
         result_status: "failed",
-        error_category: "resend",
+        error_category: sendResult.providerId,
         error_code: sendResult.errorSummary ?? "send_failed",
       });
       await updateLetterAfterDelivery(env, letter.id, {
         status: attemptNumber >= letter.max_attempts ? "FAILED" : "RETRY_REQUIRED",
         attempt_count: attemptNumber,
-        last_error_category: "resend",
+        last_error_category: sendResult.providerId,
         clear_lease: true,
       });
       return "failed";
@@ -193,6 +201,7 @@ export async function runDeliveryScheduler(
   let lettersClaimed = 0;
   let lettersSent = 0;
   let lettersFailed = 0;
+  let lettersBlockedCompliance = 0;
   let staleRecovered = 0;
 
   try {
@@ -207,8 +216,13 @@ export async function runDeliveryScheduler(
     const candidates = await fetchDueLetterCandidates(env, nowIso, 20);
 
     for (const candidate of candidates) {
-      if (!hasVerifiedDeliveryEmail(candidate)) {
-        await markAwaitingDeliveryEmail(env, candidate.id);
+      const deliveryDecision = evaluateRecipientBodyDelivery(env, candidate);
+      if (!deliveryDecision.allowed) {
+        if (deliveryDecision.reason === "recipient_not_ready") {
+          await markAwaitingDeliveryEmail(env, candidate.id);
+        } else {
+          lettersBlockedCompliance++;
+        }
         continue;
       }
 
@@ -221,7 +235,12 @@ export async function runDeliveryScheduler(
       if (!claimed) continue;
 
       lettersClaimed++;
-      const outcome = await processClaimedLetter(env, claimed, masterKey);
+      const outcome = await processClaimedLetter(
+        env,
+        claimed,
+        masterKey,
+        deliveryDecision.providerId,
+      );
       if (outcome === "sent") lettersSent++;
       else lettersFailed++;
     }
@@ -241,6 +260,7 @@ export async function runDeliveryScheduler(
       letters_claimed: lettersClaimed,
       letters_sent: lettersSent,
       letters_failed: lettersFailed,
+      letters_blocked_compliance: lettersBlockedCompliance,
       stale_recovered: staleRecovered,
       status: "completed",
     };
@@ -261,6 +281,7 @@ export async function runDeliveryScheduler(
       letters_claimed: lettersClaimed,
       letters_sent: lettersSent,
       letters_failed: lettersFailed,
+      letters_blocked_compliance: lettersBlockedCompliance,
       stale_recovered: staleRecovered,
       status: "failed",
     };
@@ -271,7 +292,16 @@ export async function runDeliveryScheduler(
 export async function processSingleLetter(
   env: Env,
   letterId: string,
-): Promise<{ claimed: boolean; outcome: "sent" | "failed" | "not_due" | "already_sent" | "awaiting_delivery_email" }> {
+): Promise<{
+  claimed: boolean;
+  outcome:
+    | "sent"
+    | "failed"
+    | "not_due"
+    | "already_sent"
+    | "awaiting_delivery_email"
+    | "blocked_compliant_provider";
+}> {
   const { fetchLetterById } = await import("../db/letters");
   const letter = await fetchLetterById(env, letterId);
   if (!letter) return { claimed: false, outcome: "failed" };
@@ -288,14 +318,23 @@ export async function processSingleLetter(
   const masterKey = env.LETTER_VAULT_MASTER_KEY_V1;
   if (!masterKey) return { claimed: false, outcome: "failed" };
 
-  if (!hasVerifiedDeliveryEmail(letter)) {
-    await markAwaitingDeliveryEmail(env, letterId);
-    return { claimed: false, outcome: "awaiting_delivery_email" };
+  const deliveryDecision = evaluateRecipientBodyDelivery(env, letter);
+  if (!deliveryDecision.allowed) {
+    if (deliveryDecision.reason === "recipient_not_ready") {
+      await markAwaitingDeliveryEmail(env, letterId);
+      return { claimed: false, outcome: "awaiting_delivery_email" };
+    }
+    return { claimed: false, outcome: "blocked_compliant_provider" };
   }
 
   const claimed = await atomicClaimLetter(env, letterId, workerInstanceId(), nowIso);
   if (!claimed) return { claimed: false, outcome: "failed" };
 
-  const outcome = await processClaimedLetter(env, claimed, masterKey);
+  const outcome = await processClaimedLetter(
+    env,
+    claimed,
+    masterKey,
+    deliveryDecision.providerId,
+  );
   return { claimed: true, outcome };
 }
