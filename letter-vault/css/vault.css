@@ -231,6 +231,7 @@ label {
 input[type="text"],
 input[type="email"],
 input[type="date"],
+input[type="number"],
 textarea {
   width: 100%;
   font: inherit;
@@ -239,6 +240,18 @@ textarea {
   border-radius: 8px;
   background: var(--cream);
   margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 input:focus, textarea:focus, button:focus {
@@ -338,6 +351,22 @@ textarea.letter-paper {
 
 #someone-else-fields {
   margin-top: 4px;
+}
+
+#birthday-other {
+  margin-top: 10px;
+}
+
+#birthday-other input[type="number"] {
+  margin-bottom: 20px;
+}
+
+#date-extra:not([hidden]) {
+  margin-bottom: 12px;
+}
+
+#btn-confirm-date:not([hidden]) {
+  margin-top: 16px;
 }
 
 .slot-list { list-style: none; display: grid; gap: 12px; }
