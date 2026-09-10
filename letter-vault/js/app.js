@@ -839,7 +839,11 @@
   }
 
   $("toggle-prompts").addEventListener("click", () => {
-    $("write-prompts").hidden = !$("write-prompts").hidden;
+    const panel = $("write-prompts");
+    const toggle = $("toggle-prompts");
+    const willOpen = panel.hidden;
+    panel.hidden = !willOpen;
+    toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
   });
 
   $("btn-to-review").addEventListener("click", () => {
