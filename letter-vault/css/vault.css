@@ -385,6 +385,7 @@ textarea.letter-paper {
     padding-left: 12px;
     padding-right: 12px;
     box-sizing: border-box;
-    text-wrap: pretty;
+    text-wrap: balance;
   }
+  .vault-intro br { display: none; }
 }
