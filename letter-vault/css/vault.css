@@ -379,8 +379,12 @@ textarea.letter-paper {
   .vault-wrap { padding-top: 20px; }
   .vault-card { padding: 20px 16px; }
   .vault-intro {
-    width: calc(100% + 20px);
-    margin-left: -10px;
-    margin-right: -10px;
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    padding-left: 12px;
+    padding-right: 12px;
+    box-sizing: border-box;
+    text-wrap: pretty;
   }
 }
