@@ -860,12 +860,27 @@
       state.currentSlot?.moment_label && state.flowMode === "collection-write"
         ? state.currentSlot.moment_label
         : recipientContext().relationship || state.recipient;
+    const slot = state.currentSlot || {};
+    const deliveryEmail =
+      slot.has_delivery_email && slot.delivery_email_masked
+        ? slot.delivery_email_masked
+        : "Not added yet";
     $("review-meta").innerHTML =
-      "<p><strong>For:</strong> " +
+      '<div class="review-summary-item">' +
+      '<p class="review-summary-label">For</p>' +
+      '<p class="review-summary-value">' +
       forLabel +
-      "</p><p><strong>Delivery:</strong> " +
+      "</p></div>" +
+      '<div class="review-summary-item">' +
+      '<p class="review-summary-label">Delivery date</p>' +
+      '<p class="review-summary-value">' +
       formatWrittenDate(state.deliveryAt) +
-      "</p><p><strong>Delivery email</strong><br>Not added yet</p>";
+      "</p></div>" +
+      '<div class="review-summary-item">' +
+      '<p class="review-summary-label">Delivery email</p>' +
+      '<p class="review-summary-value">' +
+      deliveryEmail +
+      "</p></div>";
     $("seal-understand").checked = false;
     $("btn-seal").disabled = true;
     showStep("step-review");

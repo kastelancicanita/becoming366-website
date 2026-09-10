@@ -133,14 +133,13 @@
       <!-- REVIEW -->
       <section class="vault-step" id="step-review" aria-labelledby="review-heading">
         <h2 id="review-heading">Ready to seal it?</h2>
-        <p class="vault-sub">Once you seal this letter, you won't be able to open it again.</p>
-        <div id="review-meta"></div>
-        <p class="vault-sub">This is your last chance to make changes.</p>
-        <label class="checkbox-row">
+        <p class="vault-sub review-intro">Once you seal this letter, you won't be able to open it again.</p>
+        <div id="review-meta" class="review-summary-card"></div>
+        <label class="checkbox-row seal-checkbox-row">
           <input type="checkbox" id="seal-understand">
           <span>I understand that once sealed, I won't be able to read or edit this letter.</span>
         </label>
-        <p class="vault-sub" style="font-style:italic;">Take one last moment. These words are about to leave today behind.</p>
+        <p class="vault-sub review-emotional-line">Take one last moment. These words are about to leave today behind.</p>
         <button type="button" class="btn" id="btn-seal" disabled>SEAL MY LETTER 🔒</button>
         <button type="button" class="btn btn-secondary" id="btn-back-write">Back to my letter</button>
       </section>

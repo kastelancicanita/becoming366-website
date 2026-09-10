@@ -553,8 +553,68 @@ textarea.letter-paper {
   .write-inspiration-list {
     gap: 12px;
   }
+
+  .review-summary-card {
+    padding: 16px 18px;
+  }
+
+  .review-summary-value {
+    font-size: 1.1rem;
+  }
 }
 .vault-draft-note { font-size: 0.8rem; color: var(--accent); margin-bottom: 8px; }
+
+.review-intro {
+  margin-bottom: 18px;
+}
+
+.review-summary-card {
+  margin: 0 0 24px;
+  padding: 18px 20px;
+  border: 1px solid rgba(143, 112, 68, 0.22);
+  border-radius: 8px;
+  background: rgba(143, 112, 68, 0.06);
+}
+
+.review-summary-item + .review-summary-item {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.review-summary-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--charcoal-soft);
+  margin: 0 0 6px;
+}
+
+.review-summary-value {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--charcoal);
+  margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.seal-checkbox-row {
+  margin: 24px 0;
+}
+
+.review-emotional-line {
+  font-style: italic;
+  text-align: center;
+  margin: 8px 0 24px;
+  line-height: 1.55;
+}
+
+#step-review .btn-secondary {
+  margin-top: 12px;
+}
 
 .checkbox-row {
   display: flex;
