@@ -228,14 +228,14 @@
       if (!block) return;
       const hasEmail = Boolean(slot.has_delivery_email);
       block.innerHTML =
-        '<p class="success-email-label">Delivery email</p>' +
-        '<p class="success-email-status">' +
+        '<p class="success-receipt-label">Delivery email</p>' +
+        '<p class="success-receipt-value success-email-status">' +
         (hasEmail ? slot.delivery_email_masked : "Not added yet") +
         "</p>" +
         (hasEmail
           ? ""
           : '<p class="success-email-note">That\'s okay. You can add it securely whenever you\'re ready.</p>') +
-        '<button type="button" class="link-btn delivery-email-action" id="success-delivery-action">' +
+        '<button type="button" class="success-delivery-link delivery-email-action" id="success-delivery-action">' +
         (hasEmail ? "CHANGE DELIVERY EMAIL →" : "ADD DELIVERY EMAIL →") +
         "</button>";
       $("success-delivery-action")?.addEventListener("click", () => {

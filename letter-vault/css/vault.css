@@ -157,26 +157,115 @@ body {
   margin-bottom: 8px;
 }
 
-.success-delivery-email {
+.success-hero {
   text-align: center;
-  margin: 20px 0;
+  margin-bottom: 28px;
+}
+
+.success-forget {
+  text-align: center;
+  margin-bottom: 0;
+}
+
+.success-receipt {
+  margin: 0 0 28px;
+  padding: 18px 20px;
+  border: 1px solid rgba(143, 112, 68, 0.22);
+  border-radius: 8px;
+  background: rgba(143, 112, 68, 0.06);
+  text-align: left;
+}
+
+.success-receipt-item + .success-receipt-item {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.success-receipt-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--charcoal-soft);
+  margin: 0 0 6px;
+}
+
+.success-receipt-value {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--charcoal);
+  margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.success-copy-link,
+.success-delivery-link {
+  background: none;
+  border: none;
+  color: #8f7044;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 10px;
+}
+
+.success-copy-link:hover,
+.success-delivery-link:hover {
+  color: #735830;
+}
+
+.success-copy-link:focus,
+.success-delivery-link:focus {
+  outline: none;
+}
+
+.success-copy-link:focus-visible,
+.success-delivery-link:focus-visible {
+  outline: 2px solid rgba(143, 112, 68, 0.55);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.success-delivery-email {
   font-size: 0.9rem;
   color: var(--charcoal-soft);
 }
 
-.success-email-label {
-  font-weight: 600;
-  color: var(--charcoal);
-  margin-bottom: 4px;
-}
-
 .success-email-status {
-  margin-bottom: 6px;
+  margin: 0;
 }
 
 .success-email-note {
   font-style: italic;
   font-size: 0.85rem;
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.success-inbox-note {
+  font-size: 0.9rem;
+  color: var(--charcoal-soft);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.success-closing {
+  text-align: center;
+}
+
+.success-closing-copy {
+  margin: 0 0 20px;
+}
+
+#step-success #btn-return-collection {
+  margin-top: 0;
 }
 
 .slot-status-sealed {
@@ -559,6 +648,14 @@ textarea.letter-paper {
   }
 
   .review-summary-value {
+    font-size: 1.1rem;
+  }
+
+  .success-receipt {
+    padding: 16px 18px;
+  }
+
+  .success-receipt-value {
     font-size: 1.1rem;
   }
 }

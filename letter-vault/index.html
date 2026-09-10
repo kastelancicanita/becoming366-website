@@ -146,21 +146,26 @@
 
       <!-- SUCCESS -->
       <section class="vault-step" id="step-success" aria-labelledby="success-heading">
-        <h2 id="success-heading">It's sealed. 🔒</h2>
-        <p class="vault-sub">Your letter is no longer part of today.</p>
-        <p class="vault-sub">We'll keep it safe until</p>
-        <p class="vault-success-date" id="success-date"></p>
-        <p class="vault-sub" style="text-align:center;">Now forget about it.<br>We'll remember.</p>
-        <p><strong>Your Letter ID</strong><br><span id="success-letter-id" style="font-family:var(--font-serif);font-size:1.25rem;"></span></p>
-        <button type="button" class="btn btn-secondary" id="btn-copy-id">COPY LETTER ID</button>
-        <div class="success-delivery-email" id="success-email-block">
-          <p class="success-email-label">Delivery email</p>
-          <p class="success-email-status">Not added yet</p>
-          <p class="success-email-note">That's okay. You can add it securely whenever you're ready.</p>
+        <div class="success-hero">
+          <h2 id="success-heading">It's sealed. 🔒</h2>
+          <p class="vault-sub">Your letter is no longer part of today.</p>
+          <p class="vault-sub">We'll keep it safe until</p>
+          <p class="vault-success-date" id="success-date"></p>
+          <p class="vault-sub success-forget">Now forget about it.<br>We'll remember.</p>
         </div>
-        <p class="vault-sub">Check your inbox<br>We've sent your seal confirmation and Letter ID to your purchase email.</p>
-        <p class="vault-footer">You wrote it. You sealed it. We'll take it from here.<br><em>Becoming 366</em></p>
-        <button type="button" class="btn" id="btn-return-collection" hidden>RETURN TO MY COLLECTION →</button>
+        <div class="success-receipt">
+          <div class="success-receipt-item">
+            <p class="success-receipt-label">Your Letter ID</p>
+            <p class="success-receipt-value" id="success-letter-id"></p>
+            <button type="button" class="success-copy-link" id="btn-copy-id">COPY LETTER ID</button>
+          </div>
+          <div class="success-receipt-item success-delivery-email" id="success-email-block"></div>
+          <p class="success-receipt-item success-inbox-note">Check your inbox<br>We've sent your seal confirmation and Letter ID to your purchase email.</p>
+        </div>
+        <div class="success-closing">
+          <p class="vault-footer success-closing-copy">You wrote it. You sealed it. We'll take it from here.<br><em>Becoming 366</em></p>
+          <button type="button" class="btn" id="btn-return-collection" hidden>RETURN TO MY COLLECTION →</button>
+        </div>
       </section>
 
       <!-- MANAGE SUCCESS REQUEST -->
