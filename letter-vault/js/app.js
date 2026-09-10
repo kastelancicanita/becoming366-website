@@ -39,11 +39,11 @@
   window.LvVaultState = state;
 
   const RECIPIENTS = [
-    { label: "Myself", hint: "A letter for your future self." },
-    { label: "My daughter", hint: "Words for her someday." },
-    { label: "My son", hint: "Words for him someday." },
-    { label: "My partner", hint: "Words for your partner." },
-    { label: "My friend", hint: "Words for a friend." },
+    { label: "Myself", hint: "A letter for the person you're becoming." },
+    { label: "My daughter", hint: "Words for her to carry someday." },
+    { label: "My son", hint: "Words for him to carry someday." },
+    { label: "My partner", hint: "Something you want them to remember." },
+    { label: "My friend", hint: "Words worth keeping between friends." },
     { label: "Someone else", hint: "Tell us who they are to you." },
   ];
 
@@ -563,14 +563,31 @@
     });
   }
 
+  function setRecipientSelection(grid, selectedBtn) {
+    grid.querySelectorAll(".choice-btn").forEach((b) => {
+      const on = b === selectedBtn;
+      b.classList.toggle("selected", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  function continueFromSomeoneElse() {
+    const value = $("custom-relationship").value.trim();
+    if (state.recipient !== "Someone else" || !value) return;
+    resetDateStep();
+    showStep("step-date");
+  }
+
   function setupRecipientStep(freeMoment) {
     const grid = $("recipient-choices");
     grid.innerHTML = "";
     $("someone-else-fields").hidden = true;
+    $("custom-relationship").value = "";
     RECIPIENTS.forEach((r) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "choice-btn";
+      btn.setAttribute("aria-pressed", "false");
       btn.innerHTML =
         "<span class='choice-label'>" +
         r.label +
@@ -579,8 +596,13 @@
         "</span>";
       btn.addEventListener("click", () => {
         state.recipient = r.label;
+        setRecipientSelection(grid, btn);
         if (r.label === "Someone else") {
           $("someone-else-fields").hidden = false;
+          $("custom-relationship").focus();
+          requestAnimationFrame(() => {
+            $("someone-else-fields").scrollIntoView({ behavior: "smooth", block: "nearest" });
+          });
         } else {
           resetDateStep();
           showStep("step-date");
@@ -588,10 +610,12 @@
       });
       grid.appendChild(btn);
     });
-    $("custom-relationship").onchange = $("custom-relationship").onblur = function () {
-      if (state.recipient === "Someone else" && this.value.trim()) {
-        resetDateStep();
-        showStep("step-date");
+    const customField = $("custom-relationship");
+    customField.onchange = customField.onblur = continueFromSomeoneElse;
+    customField.onkeydown = function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        continueFromSomeoneElse();
       }
     };
   }
