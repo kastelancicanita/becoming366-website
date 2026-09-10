@@ -474,10 +474,17 @@
           return;
         }
         $("mgmt-result-copy").textContent = res.json.message;
-        $("mgmt-result-detail").textContent =
-          mgmt.selectedMode === "surprise"
-            ? "The recipient will not be contacted until delivery day."
-            : "Check the new address for a verification email. The current address stays active until verification succeeds.";
+        const detailEl = $("mgmt-result-detail");
+        if (mgmt.selectedMode === "surprise") {
+          if (detailEl) {
+            detailEl.textContent = "";
+            detailEl.hidden = true;
+          }
+        } else if (detailEl) {
+          detailEl.hidden = false;
+          detailEl.textContent =
+            "Check the new address for a verification email. The current address stays active until verification succeeds.";
+        }
         showStep("step-manage-done");
       } catch {
         showMgmtError("Network error — please check your connection and try again.");
