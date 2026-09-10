@@ -27,12 +27,12 @@ body {
 .vault-wrap {
   width: min(100% - 32px, var(--narrow));
   margin: 0 auto;
-  padding: 32px 0 64px;
+  padding: 26px 0 64px;
 }
 
 .vault-brand {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 26px;
 }
 
 .vault-brand h1 {
@@ -45,14 +45,14 @@ body {
 .vault-tagline {
   font-family: var(--font-script);
   font-size: 1.5rem;
-  color: var(--gold);
+  color: #8f7044;
   margin-top: 4px;
 }
 
 .vault-intro {
   text-align: center;
   color: var(--charcoal-soft);
-  margin-bottom: 28px;
+  margin-bottom: 22px;
   font-size: 1.05rem;
 }
 
@@ -333,6 +333,11 @@ textarea.letter-paper {
   margin-top: 28px;
   font-size: 0.9rem;
   color: var(--charcoal-soft);
+}
+
+.vault-entry-helper {
+  margin-top: 16px;
+  font-size: 0.85rem;
 }
 
 .vault-error {
