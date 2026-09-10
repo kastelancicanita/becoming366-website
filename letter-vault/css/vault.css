@@ -117,6 +117,17 @@ body {
   font-weight: 600;
 }
 
+#recipient-choices .choice-label,
+#date-choices .choice-label {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#milestone-grid .choice-label {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .choice-btn .choice-hint {
   display: block;
   font-size: 0.85rem;

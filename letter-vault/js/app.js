@@ -75,6 +75,16 @@
     el.hidden = false;
   }
 
+  function ordinalAgeLabel(age) {
+    const mod100 = age % 100;
+    const mod10 = age % 10;
+    let suffix = "th";
+    if (mod10 === 1 && mod100 !== 11) suffix = "st";
+    else if (mod10 === 2 && mod100 !== 12) suffix = "nd";
+    else if (mod10 === 3 && mod100 !== 13) suffix = "rd";
+    return age + suffix + " birthday";
+  }
+
   function formatWrittenDate(iso) {
     if (!iso) return "";
     const d = new Date(iso);
@@ -620,6 +630,22 @@
     };
   }
 
+  function setDateOptionSelection(action) {
+    $("date-choices").querySelectorAll(".choice-btn").forEach((b) => {
+      const on = b.dataset.dateAction === action;
+      b.classList.toggle("selected", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  function setMilestoneSelection(selectedBtn) {
+    $("milestone-grid")?.querySelectorAll(".choice-btn").forEach((b) => {
+      const on = b === selectedBtn;
+      b.classList.toggle("selected", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
   function resetDateStep() {
     $("date-extra").hidden = true;
     $("date-extra").innerHTML = "";
@@ -632,6 +658,8 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "choice-btn";
+      btn.dataset.dateAction = o.action;
+      btn.setAttribute("aria-pressed", "false");
       btn.innerHTML =
         "<span class='choice-label'>" +
         o.label +
@@ -648,7 +676,7 @@
     $("date-extra").hidden = true;
     $("date-confirm-panel").hidden = false;
     $("date-confirm-panel").querySelector(".date-confirm-label").textContent =
-      headline || "This letter will arrive";
+      headline || "Your letter will arrive";
     $("confirm-date-display").textContent = formatWrittenDate(iso);
     $("confirm-date-sub").textContent = subcopy || "We'll keep it until then.";
     $("btn-confirm-date").hidden = false;
@@ -656,6 +684,7 @@
 
   function selectDateOption(action) {
     showError("");
+    setDateOptionSelection(action);
     $("date-confirm-panel").hidden = true;
     $("btn-confirm-date").hidden = true;
     const extra = $("date-extra");
@@ -681,31 +710,32 @@
         const b = document.createElement("button");
         b.type = "button";
         b.className = "choice-btn";
-        b.innerHTML =
-          "<span class='choice-label'>" +
-          age +
-          "th birthday</span>";
-        b.onclick = () => pickBirthdayMilestone(age);
+        b.setAttribute("aria-pressed", "false");
+        b.innerHTML = "<span class='choice-label'>" + ordinalAgeLabel(age) + "</span>";
+        b.onclick = () => pickBirthdayMilestone(age, b);
         mg.appendChild(b);
       });
       const otherBtn = document.createElement("button");
       otherBtn.type = "button";
       otherBtn.className = "choice-btn";
-      otherBtn.innerHTML = "<span class='choice-label'>Other</span><span class='choice-hint'>Choose another future birthday.</span>";
+      otherBtn.setAttribute("aria-pressed", "false");
+      otherBtn.innerHTML =
+        "<span class='choice-label'>Other</span><span class='choice-hint'>Choose another future birthday.</span>";
       otherBtn.onclick = () => {
+        setMilestoneSelection(otherBtn);
         $("birthday-other").hidden = false;
       };
       mg.appendChild(otherBtn);
       $("other-age")?.addEventListener("change", function () {
         const age = parseInt(this.value, 10);
-        if (age > 0) pickBirthdayMilestone(age);
+        if (age > 0) pickBirthdayMilestone(age, otherBtn);
       });
       return;
     }
 
     if (action === "anniversary") {
       extra.innerHTML =
-        '<p class="vault-sub">Choose the anniversary date this letter should arrive.</p>' +
+        '<p class="vault-sub">Choose the anniversary date you\'d like this letter to arrive.</p>' +
         '<label for="anniversary-date">Future anniversary date</label>' +
         '<input type="date" id="anniversary-date" min="' +
         new Date().toISOString().slice(0, 10) +
@@ -717,7 +747,7 @@
           showError("Please choose a future date.");
           return;
         }
-        showDateConfirm(iso, "We'll keep it until then.");
+        showDateConfirm(iso, "We'll keep it until then.", "Your letter will arrive");
       });
       return;
     }
@@ -735,12 +765,13 @@
           showError("Please choose a future date.");
           return;
         }
-        showDateConfirm(iso, "We'll keep it until then.");
+        showDateConfirm(iso, "We'll keep it until then.", "Your letter will arrive");
       });
     }
   }
 
-  function pickBirthdayMilestone(age) {
+  function pickBirthdayMilestone(age, selectedBtn) {
+    if (selectedBtn) setMilestoneSelection(selectedBtn);
     const dob = $("dob-input")?.value;
     const err = $("milestone-error");
     if (!dob) {
@@ -755,7 +786,7 @@
     }
     if (err) err.hidden = true;
     showError("");
-    showDateConfirm(iso, "We'll keep it until then.");
+    showDateConfirm(iso, "We'll keep it until then.", "Your letter will arrive");
   }
 
   $("btn-confirm-date").addEventListener("click", async () => {
