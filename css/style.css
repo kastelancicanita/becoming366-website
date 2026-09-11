@@ -1454,15 +1454,6 @@ a {
   opacity: 0.75;
 }
 
-.home-hero-actions {
-  margin: 32px 0 0;
-}
-
-.home-hero-cta {
-  display: inline-block;
-  text-decoration: none;
-}
-
 .home-hero-waves {
   position: absolute;
   bottom: 0;
