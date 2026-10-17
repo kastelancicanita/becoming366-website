@@ -7,10 +7,26 @@
     metadata: null,
     selectedMode: null,
     authChannel: null,
+    deliveryCapabilities: null,
+    returnStep: "step-entry",
+    collectionWide: false,
   };
 
-  function $(id) {
-    return document.getElementById(id);
+  const $ = (id) => document.getElementById(id);
+
+  function parseApiResponse(r, text) {
+    let json = {};
+    if (text) {
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = {
+          status: "error",
+          message: text.slice(0, 200) || "Unexpected server response.",
+        };
+      }
+    }
+    return { status: r.status, json };
   }
 
   function vaultApi(path, opts) {
@@ -24,32 +40,128 @@
     return fetch(window.LETTER_VAULT_API + path, {
       ...opts,
       headers,
-    }).then((r) => r.json().then((j) => ({ status: r.status, json: j })));
+    }).then(async (r) => parseApiResponse(r, await r.text()));
   }
 
   function hasActiveVaultSession() {
     return Boolean(window.LvVaultState?.session);
   }
 
-  function applySurpriseModeUi() {
+  function deliveryCapabilitiesFrom(source) {
+    if (source && typeof source.surprise_delivery_email_available === "boolean") {
+      return {
+        surprise_delivery_email_available: source.surprise_delivery_email_available,
+        surprise_unavailable_message: source.surprise_unavailable_message ?? null,
+        surprise_declaration_text: source.surprise_declaration_text ?? null,
+      };
+    }
+    if (mgmt.deliveryCapabilities) return mgmt.deliveryCapabilities;
+    if (window.LvVaultState?.surprise_delivery_email_available !== undefined) {
+      return {
+        surprise_delivery_email_available:
+          window.LvVaultState.surprise_delivery_email_available,
+        surprise_unavailable_message:
+          window.LvVaultState.surprise_unavailable_message ?? null,
+        surprise_declaration_text:
+          window.LvVaultState.surprise_declaration_text ?? null,
+      };
+    }
+    return {
+      surprise_delivery_email_available:
+        window.LETTER_VAULT_UI_ENV !== "production",
+      surprise_unavailable_message: null,
+      surprise_declaration_text: null,
+    };
+  }
+
+  function storeDeliveryCapabilities(source) {
+    mgmt.deliveryCapabilities = deliveryCapabilitiesFrom(source);
+    if (window.LvVaultState) {
+      window.LvVaultState.surprise_delivery_email_available =
+        mgmt.deliveryCapabilities.surprise_delivery_email_available;
+      window.LvVaultState.surprise_unavailable_message =
+        mgmt.deliveryCapabilities.surprise_unavailable_message;
+      window.LvVaultState.surprise_declaration_text =
+        mgmt.deliveryCapabilities.surprise_declaration_text;
+    }
+  }
+
+  function updateManageDeliveryIntro() {
+    const el = $("manage-delivery-sub");
+    if (!el) return;
+    if (mgmt.collectionWide) {
+      el.textContent =
+        "Add or change where letters in this collection will be delivered. Your letters stay sealed.";
+    } else {
+      el.textContent =
+        "Add or change where this letter will be delivered. Your letter stays sealed.";
+    }
+  }
+
+  function collectionDeliverySummaryStatus(collection) {
+    if (!collection) return "Not added yet";
+    if (collection.delivery_email_pending_verification) {
+      const masked =
+        collection.pending_delivery_email_masked ||
+        collection.delivery_email_masked ||
+        "";
+      return masked ? "Pending verification · " + masked : "Pending verification";
+    }
+    if (!collection.has_delivery_email) return "Not added yet";
+    return collection.delivery_email_masked || "Added";
+  }
+
+  function updateSaveButtonState() {
+    const btn = $("btn-save-delivery-email");
+    if (!btn) return;
+    // Always clickable — saveDeliveryEmail shows clear errors if something is missing.
+    // (Disabled buttons + hover styling that matched "selected" blocked users from saving.)
+    btn.disabled = false;
+  }
+
+  function updateSurpriseDeclarationVisibility(surpriseAvailable) {
+    const declarationBlock = $("mgmt-surprise-declaration");
+    const declarationCheck = $("mgmt-surprise-declaration-check");
+    if (!declarationBlock) return;
+
+    const showDeclaration =
+      surpriseAvailable === true && mgmt.selectedMode === "surprise";
+
+    declarationBlock.hidden = !showDeclaration;
+    if (!showDeclaration && declarationCheck) {
+      declarationCheck.checked = false;
+    }
+    updateSaveButtonState();
+  }
+
+  function applySurpriseModeUi(capabilitySource) {
+    const caps = deliveryCapabilitiesFrom(capabilitySource);
     const surpriseBtn = $("btn-manage-mode-surprise");
     const verifyBtn = $("btn-manage-mode-verify");
     const notice = $("mgmt-surprise-unavailable");
-    const isProduction = window.LETTER_VAULT_UI_ENV === "production";
+    const declarationText = $("mgmt-surprise-declaration-text");
     if (!surpriseBtn || !verifyBtn) return;
-    if (isProduction) {
+
+    const surpriseAvailable = caps.surprise_delivery_email_available === true;
+
+    if (!surpriseAvailable) {
       surpriseBtn.hidden = true;
       surpriseBtn.disabled = true;
       if (notice) notice.hidden = false;
-      mgmt.selectedMode = "verify_now";
-      document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
-      verifyBtn.classList.add("selected");
-      $("btn-save-delivery-email").disabled = !$("mgmt-delivery-email")?.value.trim();
+      if (mgmt.selectedMode === "surprise") {
+        mgmt.selectedMode = "verify_now";
+        document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
+        verifyBtn.classList.add("selected");
+      }
     } else {
       surpriseBtn.hidden = false;
       surpriseBtn.disabled = false;
       if (notice) notice.hidden = true;
+      if (declarationText && caps.surprise_declaration_text) {
+        declarationText.textContent = caps.surprise_declaration_text;
+      }
     }
+    updateSurpriseDeclarationVisibility(surpriseAvailable);
   }
 
   function formatDeliverySummaryDate(iso) {
@@ -62,15 +174,82 @@
     });
   }
 
-  function renderDeliverySummary(letterId, deliveryAt, deliveryEmailMasked) {
+  function deliveryEmailMetadataStatus(meta) {
+    if (!meta) return "Not added yet";
+    if (meta.delivery_email_pending_verification) {
+      const masked =
+        meta.pending_delivery_email_masked || meta.delivery_email_masked || "";
+      return masked ? "Pending verification · " + masked : "Pending verification";
+    }
+    if (meta.has_delivery_email) {
+      const masked = meta.delivery_email_masked || "";
+      return masked ? "Added · " + masked : "Added";
+    }
+    return "Not added yet";
+  }
+
+  function renderDeliverySummary(letterId, deliveryAt, emailStatus) {
     $("mgmt-letter-summary").innerHTML =
       "<p><strong>Letter ID</strong> " +
       (letterId || "—") +
       "</p><p><strong>Delivery</strong> " +
       formatDeliverySummaryDate(deliveryAt) +
       "</p><p><strong>Current delivery email</strong> " +
-      (deliveryEmailMasked || "Not added yet") +
+      (emailStatus || "Not added yet") +
       "</p>";
+  }
+
+  function renderManagementCancelActions(context) {
+    const wrap = $("mgmt-cancel-actions");
+    const saveBtn = $("btn-save-delivery-email");
+    if (!wrap || !window.LvCancel) return;
+    wrap.innerHTML = "";
+    const cancelled =
+      context?.letter_status === "CANCELLED" ||
+      context?.delivery_status === "CANCELLED";
+    if (cancelled) {
+      wrap.innerHTML =
+        '<p class="slot-status-cancelled">CANCELLED</p>' +
+        '<p class="vault-hint">This letter will not be delivered.</p>';
+      if (saveBtn) saveBtn.hidden = true;
+      document
+        .querySelectorAll(".mgmt-mode-btn, #mgmt-delivery-email")
+        .forEach((el) => {
+          if (el) el.disabled = true;
+        });
+      return;
+    }
+    if (saveBtn) saveBtn.hidden = false;
+    document
+      .querySelectorAll(".mgmt-mode-btn, #mgmt-delivery-email")
+      .forEach((el) => {
+        if (el) el.disabled = false;
+      });
+    if (!context?.cancellable) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "link-btn-destructive";
+    btn.textContent = "CANCEL THIS LETTER";
+    btn.addEventListener("click", () => {
+      LvCancel.openCancelLetter(null, {
+        publicLetterId: mgmt.letterId,
+        deliveryAt: context.delivery_at || context.scheduled_delivery_at,
+        channel: mgmt.authChannel === "management" ? "management" : "vault",
+        managementSession: mgmt.session,
+        onSuccess: () => {
+          if (mgmt.authChannel === "management") {
+            LvManage.openManagementSession();
+          } else {
+            renderManagementCancelActions({
+              letter_status: "CANCELLED",
+              delivery_status: "CANCELLED",
+            });
+          }
+        },
+        onError: showMgmtError,
+      });
+    });
+    wrap.appendChild(btn);
   }
 
   function mgmtApi(path, opts) {
@@ -84,7 +263,7 @@
     return fetch(window.LETTER_VAULT_API + path, {
       ...opts,
       headers,
-    }).then((r) => r.json().then((j) => ({ status: r.status, json: j })));
+    }).then(async (r) => parseApiResponse(r, await r.text()));
   }
 
   function showMgmtError(msg) {
@@ -102,35 +281,27 @@
     document.querySelectorAll(".vault-step").forEach((s) => {
       s.classList.toggle("active", s.id === id);
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const MGMT_STORE_KEY = "lv_mgmt_session_v1";
 
   function persistMgmtSession() {
-    if (!mgmt.session) return;
-    try {
-      sessionStorage.setItem(
-        MGMT_STORE_KEY,
-        JSON.stringify({ session: mgmt.session, letterId: mgmt.letterId }),
-      );
-    } catch (_) {
-      /* private browsing / quota */
-    }
+    if (!mgmt.session || !mgmt.letterId) return;
+    sessionStorage.setItem(
+      MGMT_STORE_KEY,
+      JSON.stringify({ session: mgmt.session, letterId: mgmt.letterId }),
+    );
   }
 
   function restoreMgmtSession() {
-    if (mgmt.session) return;
     try {
       const raw = sessionStorage.getItem(MGMT_STORE_KEY);
       if (!raw) return;
-      const data = JSON.parse(raw);
-      if (data && typeof data.session === "string" && data.session) {
-        mgmt.session = data.session;
-        mgmt.letterId = data.letterId || null;
-      }
-    } catch (_) {
-      /* corrupt storage */
+      const parsed = JSON.parse(raw);
+      if (parsed?.session) mgmt.session = parsed.session;
+      if (parsed?.letterId) mgmt.letterId = parsed.letterId;
+    } catch {
+      /* ignore */
     }
   }
 
@@ -138,85 +309,208 @@
     mgmt.session = null;
     mgmt.letterId = null;
     mgmt.metadata = null;
-    mgmt.authChannel = null;
-    try {
-      sessionStorage.removeItem(MGMT_STORE_KEY);
-    } catch (_) {
-      /* ignore */
-    }
+    sessionStorage.removeItem(MGMT_STORE_KEY);
   }
 
   function canReuseMgmtSession(letterId) {
-    if (!mgmt.session) return false;
-    if (!mgmt.letterId) return true;
-    return mgmt.letterId.toUpperCase() === letterId.toUpperCase();
+    return Boolean(mgmt.session && mgmt.letterId === letterId);
   }
 
-  function deliveryEmailLabel(slot) {
-    if (!slot || slot.slot_status !== "SEALED") return "";
+  function deliveryEmailStatusText(slot) {
+    if (!slot) return "Not added yet";
     if (slot.delivery_email_pending_verification) {
-      return "Delivery email: Pending verification";
+      const masked =
+        slot.pending_delivery_email_masked || slot.delivery_email_masked || "";
+      return masked ? "Pending verification · " + masked : "Pending verification";
     }
-    if (slot.has_delivery_email && slot.delivery_email_masked) {
-      return "Delivery email: " + slot.delivery_email_masked;
+    if (slot.has_delivery_email) {
+      const masked = slot.delivery_email_masked || "";
+      return masked ? "Added · " + masked : "Added";
     }
-    return "Delivery email: Not added yet";
+    return "Not added yet";
   }
 
-  function deliveryEmailActionLabel(slot) {
-    if (!slot || slot.slot_status !== "SEALED") return "";
-    if (slot.has_delivery_email) return "CHANGE →";
-    return "ADD DELIVERY EMAIL →";
+  function deliveryEmailDashboardStatus(slot) {
+    if (!slot) return "Not added yet";
+    if (slot.delivery_email_pending_verification) {
+      const masked =
+        slot.pending_delivery_email_masked || slot.delivery_email_masked || "";
+      return masked ? "Pending verification · " + masked : "Pending verification";
+    }
+    if (!slot.has_delivery_email) return "Not added yet";
+    const masked = slot.delivery_email_masked || "";
+    if (slot.delivery_email_mode === "surprise") {
+      return masked ? "Added · " + masked : "Added";
+    }
+    if (slot.delivery_email_mode === "verified") {
+      return masked ? "Added · " + masked : "Added";
+    }
+    return masked ? "Added · " + masked : "Added";
+  }
+
+  async function refreshVaultSlotsAfterDeliverySave() {
+    if (!hasActiveVaultSession() || !window.LvVaultRefreshState) return;
+    await window.LvVaultRefreshState();
   }
 
   window.LvManage = {
-    deliveryEmailLabel: deliveryEmailLabel,
-    deliveryEmailActionLabel: deliveryEmailActionLabel,
+    returnStep: "step-entry",
+    getSession: function () {
+      return mgmt.session;
+    },
+    deliveryEmailStatusText: deliveryEmailStatusText,
+
+    deliveryEmailDashboardStatus: deliveryEmailDashboardStatus,
+
+    deliveryEmailLabel: function (slot) {
+      return "Delivery email: " + deliveryEmailDashboardStatus(slot);
+    },
+
+    deliveryEmailActionLabel: function (slot) {
+      if (slot?.delivery_email_pending_verification) {
+        return "UPDATE DELIVERY EMAIL →";
+      }
+      return slot?.has_delivery_email
+        ? "CHANGE DELIVERY EMAIL →"
+        : "ADD DELIVERY EMAIL →";
+    },
 
     renderSuccessDeliveryBlock: function (slot) {
       const block = $("success-email-block");
       if (!block) return;
-      const hasEmail = slot && slot.has_delivery_email && slot.delivery_email_masked;
+      const status = deliveryEmailStatusText(slot);
+      const hasEmail = Boolean(slot.has_delivery_email);
       block.innerHTML =
-        '<p class="success-email-label">Delivery email</p>' +
-        '<p class="success-email-status">' +
-        (hasEmail ? slot.delivery_email_masked : "Not added yet") +
+        '<p class="success-receipt-label">Delivery email</p>' +
+        '<p class="success-receipt-value success-email-status">' +
+        status +
         "</p>" +
-        (hasEmail
+        (hasEmail && !slot.delivery_email_pending_verification
           ? ""
           : '<p class="success-email-note">That\'s okay. You can add it securely whenever you\'re ready.</p>') +
-        '<button type="button" class="link-btn delivery-email-action" id="success-delivery-action">' +
-        (hasEmail ? "CHANGE DELIVERY EMAIL →" : "ADD DELIVERY EMAIL →") +
+        '<button type="button" class="success-delivery-link delivery-email-action" id="success-delivery-action">' +
+        LvManage.deliveryEmailActionLabel(slot) +
         "</button>";
       $("success-delivery-action")?.addEventListener("click", () => {
         LvManage.openDeliveryEmail(slot.public_letter_id, slot);
       });
     },
 
-    openDeliveryEmail: function (letterId, slot) {
+    openDeliveryEmail: function (letterId, slot, returnStep) {
+      if (slot?.uses_collection_delivery && hasActiveVaultSession()) {
+        LvManage.openCollectionDeliveryEmail(returnStep);
+        return;
+      }
       if (hasActiveVaultSession()) {
-        LvManage.openVaultDeliveryEmail(letterId, slot);
+        LvManage.openVaultDeliveryEmail(letterId, slot, returnStep);
         return;
       }
       LvManage.requestSecureLink(letterId);
     },
 
-    openVaultDeliveryEmail: function (letterId, slot) {
+    openCollectionDeliveryEmail: function (returnStep) {
       showMgmtError("");
       mgmt.authChannel = "vault";
-      mgmt.letterId = letterId;
+      mgmt.collectionWide = true;
+      mgmt.letterId = null;
       mgmt.session = null;
       mgmt.metadata = null;
-      renderDeliverySummary(
-        letterId,
-        slot?.delivery_at || null,
-        slot?.has_delivery_email ? slot.delivery_email_masked : null,
-      );
+      mgmt.returnStep =
+        returnStep ||
+        (document.getElementById("step-collection")?.classList.contains("active")
+          ? "step-collection"
+          : "step-entry");
+      window.LvManage.returnStep = mgmt.returnStep;
+      storeDeliveryCapabilities(window.LvVaultState);
+      const collection = window.LvVaultState?.collection;
+      const recipientLine =
+        collection?.shared_recipient_display || "—";
+      $("mgmt-letter-summary").innerHTML =
+        "<p><strong>Collection recipient</strong> " +
+        recipientLine +
+        "</p><p><strong>Current collection delivery email</strong> " +
+        collectionDeliverySummaryStatus(collection) +
+        "</p>";
+      updateManageDeliveryIntro();
       $("mgmt-delivery-email").value = "";
       mgmt.selectedMode = null;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
-      $("btn-save-delivery-email").disabled = true;
-      applySurpriseModeUi();
+      if ($("mgmt-surprise-declaration-check")) {
+        $("mgmt-surprise-declaration-check").checked = false;
+      }
+      applySurpriseModeUi(window.LvVaultState);
+      showStep("step-manage-delivery");
+    },
+
+    renderPredefinedSuccessDeliveryBlock: function () {
+      const block = $("success-email-block");
+      if (!block) return;
+      const collection = window.LvVaultState?.collection;
+      let status = "Not added yet";
+      if (collection?.delivery_email_pending_verification) {
+        const masked =
+          collection.pending_delivery_email_masked ||
+          collection.delivery_email_masked ||
+          "";
+        status = masked ? "Pending verification · " + masked : "Pending verification";
+      } else if (collection?.has_delivery_email) {
+        const masked = collection.delivery_email_masked || "";
+        status = masked ? "Added · " + masked : "Added";
+      }
+      block.innerHTML =
+        '<p class="success-receipt-label">Collection delivery email</p>' +
+        '<p class="success-receipt-value success-email-status">' +
+        status +
+        "</p>" +
+        (collection?.has_delivery_email && !collection.delivery_email_pending_verification
+          ? ""
+          : '<p class="success-email-note">That\'s okay. You can add it for the whole collection from your dashboard whenever you\'re ready.</p>') +
+        '<button type="button" class="success-delivery-link delivery-email-action" id="success-delivery-action">' +
+        (collection?.delivery_email_pending_verification
+          ? "UPDATE COLLECTION DELIVERY EMAIL →"
+          : collection?.has_delivery_email
+            ? "CHANGE COLLECTION DELIVERY EMAIL →"
+            : "ADD COLLECTION DELIVERY EMAIL →") +
+        "</button>";
+      $("success-delivery-action")?.addEventListener("click", () => {
+        LvManage.openCollectionDeliveryEmail("step-success");
+      });
+    },
+
+    openVaultDeliveryEmail: function (letterId, slot, returnStep) {
+      showMgmtError("");
+      mgmt.authChannel = "vault";
+      mgmt.collectionWide = false;
+      mgmt.letterId = letterId;
+      mgmt.session = null;
+      mgmt.metadata = null;
+      mgmt.returnStep =
+        returnStep ||
+        (document.getElementById("step-collection")?.classList.contains("active")
+          ? "step-collection"
+          : document.getElementById("step-success")?.classList.contains("active")
+            ? "step-success"
+            : "step-entry");
+      window.LvManage.returnStep = mgmt.returnStep;
+      storeDeliveryCapabilities(window.LvVaultState);
+      renderDeliverySummary(
+        letterId,
+        slot?.delivery_at || null,
+        deliveryEmailDashboardStatus(slot),
+      );
+      updateManageDeliveryIntro();
+      $("mgmt-delivery-email").value = "";
+      mgmt.selectedMode = null;
+      document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
+      if ($("mgmt-surprise-declaration-check")) {
+        $("mgmt-surprise-declaration-check").checked = false;
+      }
+      applySurpriseModeUi(window.LvVaultState);
+      renderManagementCancelActions({
+        cancellable: slot?.cancellable,
+        letter_status: slot?.letter_status,
+        delivery_at: slot?.delivery_at,
+      });
       showStep("step-manage-delivery");
     },
 
@@ -308,6 +602,7 @@
         return;
       }
       mgmt.metadata = res.json.management;
+      storeDeliveryCapabilities(res.json);
       $("mgmt-letter-summary").innerHTML =
         "<p><strong>Letter ID</strong> " +
         (mgmt.letterId || "—") +
@@ -321,13 +616,17 @@
             })
           : "—") +
         "</p><p><strong>Current delivery email</strong> " +
-        (mgmt.metadata.delivery_email_masked || "Not added yet") +
+        deliveryEmailMetadataStatus(mgmt.metadata) +
         "</p>";
+      updateManageDeliveryIntro();
       $("mgmt-delivery-email").value = "";
       mgmt.selectedMode = null;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
-      $("btn-save-delivery-email").disabled = true;
-      applySurpriseModeUi();
+      if ($("mgmt-surprise-declaration-check")) {
+        $("mgmt-surprise-declaration-check").checked = false;
+      }
+      applySurpriseModeUi(res.json);
+      renderManagementCancelActions(mgmt.metadata);
       persistMgmtSession();
       showStep("step-manage-delivery");
     },
@@ -336,60 +635,148 @@
       mgmt.selectedMode = mode;
       document.querySelectorAll(".mgmt-mode-btn").forEach((b) => b.classList.remove("selected"));
       btn.classList.add("selected");
-      $("btn-save-delivery-email").disabled = !$("mgmt-delivery-email").value.trim();
+      updateSurpriseDeclarationVisibility(
+        deliveryCapabilitiesFrom(mgmt.deliveryCapabilities ?? window.LvVaultState)
+          .surprise_delivery_email_available === true,
+      );
     },
 
     saveDeliveryEmail: async function () {
       showMgmtError("");
+      const saveBtn = $("btn-save-delivery-email");
       const email = $("mgmt-delivery-email").value.trim();
       if (!email) {
         showMgmtError("Please enter a delivery email address.");
         return;
       }
       if (!mgmt.selectedMode) {
-        showMgmtError("Please choose how we should handle this address.");
+        showMgmtError("Please tap KEEP IT A SURPRISE or VERIFY THE ADDRESS NOW above.");
+        return;
+      }
+      if (
+        mgmt.selectedMode === "surprise" &&
+        !$("mgmt-surprise-declaration-check")?.checked
+      ) {
+        showMgmtError("Please confirm the personal delivery declaration.");
+        return;
+      }
+      if (mgmt.authChannel === "vault" && !hasActiveVaultSession()) {
+        showMgmtError(
+          "Your Vault session expired. Go back, enter your access code again, then add delivery email.",
+        );
         return;
       }
 
-      let res;
-      if (mgmt.authChannel === "vault" && hasActiveVaultSession()) {
-        res = await vaultApi("/v1/vault/delivery-email", {
-          method: "POST",
-          body: JSON.stringify({
-            public_letter_id: mgmt.letterId,
-            delivery_email: email,
-            delivery_email_mode: mgmt.selectedMode,
-          }),
-        });
-      } else {
-        res = await mgmtApi("/v1/staging/management/delivery-email/request", {
-          method: "POST",
-          body: JSON.stringify({
-            new_delivery_email: email,
-            delivery_email_mode: mgmt.selectedMode,
-          }),
-        });
+      const payload = {
+        delivery_email_mode: mgmt.selectedMode,
+      };
+      if (mgmt.selectedMode === "surprise") {
+        payload.surprise_personal_declaration_accepted = true;
       }
 
-      if (res.status !== 200 || res.json.status !== "ok") {
-        showMgmtError(res.json.message || "We couldn't save that address. Please try again.");
-        return;
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = "SAVING…";
       }
-      $("mgmt-result-copy").textContent = res.json.message;
-      $("mgmt-result-detail").textContent =
-        mgmt.selectedMode === "surprise"
-          ? "The recipient will not be contacted until delivery day."
-          : "Check the new address for a verification email. The current address stays active until verification succeeds.";
-      showStep("step-manage-done");
+
+      try {
+        let res;
+        if (mgmt.authChannel === "vault" && hasActiveVaultSession() && mgmt.collectionWide) {
+          res = await vaultApi("/v1/vault/collection/delivery-email", {
+            method: "POST",
+            body: JSON.stringify({
+              delivery_email: email,
+              ...payload,
+            }),
+          });
+        } else if (mgmt.authChannel === "vault" && hasActiveVaultSession()) {
+          res = await vaultApi("/v1/vault/delivery-email", {
+            method: "POST",
+            body: JSON.stringify({
+              public_letter_id: mgmt.letterId,
+              delivery_email: email,
+              ...payload,
+            }),
+          });
+        } else {
+          res = await mgmtApi("/v1/staging/management/delivery-email/request", {
+            method: "POST",
+            body: JSON.stringify({
+              new_delivery_email: email,
+              ...payload,
+            }),
+          });
+        }
+
+        if (res.status !== 200 || res.json.status !== "ok") {
+          if (
+            res.json.error === "surprise_schema_not_ready" ||
+            res.json.error === "surprise_declaration_table_missing"
+          ) {
+            showMgmtError(
+              res.json.message ||
+                "Surprise delivery needs Supabase migrations 009 and 010. Open Supabase → SQL Editor, run the SQL from the chat, then try again.",
+            );
+            return;
+          }
+          showMgmtError(
+            res.json.message || "We couldn't save that address. Please try again.",
+          );
+          return;
+        }
+        $("mgmt-result-copy").textContent = res.json.message;
+        const detailEl = $("mgmt-result-detail");
+        if (mgmt.selectedMode === "surprise") {
+          if (detailEl) {
+            detailEl.textContent = "";
+            detailEl.hidden = true;
+          }
+        } else if (detailEl) {
+          detailEl.hidden = false;
+          detailEl.textContent =
+            "Check the new address for a verification email. The current address stays active until verification succeeds.";
+        }
+        if (mgmt.authChannel === "vault") {
+          await refreshVaultSlotsAfterDeliverySave();
+        }
+        showStep("step-manage-done");
+      } catch {
+        showMgmtError("Network error — please check your connection and try again.");
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = "SAVE DELIVERY EMAIL →";
+        }
+      }
     },
   };
 
   $("btn-save-delivery-email")?.addEventListener("click", () => LvManage.saveDeliveryEmail());
-  $("mgmt-delivery-email")?.addEventListener("input", function () {
-    $("btn-save-delivery-email").disabled =
-      !this.value.trim() || !mgmt.selectedMode;
+  ["input", "change", "keyup", "paste"].forEach(function (evt) {
+    $("mgmt-delivery-email")?.addEventListener(evt, function () {
+      if (evt === "paste") {
+        setTimeout(updateSaveButtonState, 0);
+      } else {
+        updateSaveButtonState();
+      }
+    });
   });
-  $("btn-manage-done")?.addEventListener("click", () => showStep("step-entry"));
+  $("mgmt-surprise-declaration-check")?.addEventListener("change", updateSaveButtonState);
+  $("btn-manage-done")?.addEventListener("click", async () => {
+    const target = mgmt.returnStep || "step-entry";
+    if (hasActiveVaultSession() && window.LvVaultRefreshState) {
+      await window.LvVaultRefreshState();
+    }
+    if (target === "step-collection" && window.LvVaultRenderCollection) {
+      window.LvVaultRenderCollection();
+    } else if (target === "step-success") {
+      const vs = window.LvVaultState;
+      if (vs?.collection?.collection_wide_delivery) {
+        LvManage.renderPredefinedSuccessDeliveryBlock();
+      }
+    }
+    showStep(target);
+  });
   $("btn-manage-mode-surprise")?.addEventListener("click", function () {
     LvManage.selectMode("surprise", this);
   });

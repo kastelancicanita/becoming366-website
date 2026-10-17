@@ -1,0 +1,3 @@
+/letter-vault	/	301
+/letter-vault/	/	301
+/letter-vault/*	/:splat	301

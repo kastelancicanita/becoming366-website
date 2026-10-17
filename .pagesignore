@@ -1,0 +1,9 @@
+# Internal and private paths — must not be published via Cloudflare Pages.
+# NOTE: Wrangler Pages direct upload does not read .pagesignore (hardcoded ignore list only).
+# Authoritative exclusion is npm run pages:build -> dist/ (see scripts/pages-public-build.mjs).
+compliance/
+letter-vault/backups/
+letter-vault/worker/
+letter-vault/migrations/
+letter-vault/scripts/
+_deploy8bc/

@@ -1,0 +1,7 @@
+{
+  "name": "becoming366-website",
+  "private": true,
+  "scripts": {
+    "pages:build": "node scripts/pages-public-build.mjs"
+  }
+}

@@ -1,0 +1,184 @@
+.privacy-wrap {
+  max-width: 720px;
+}
+
+.privacy-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: center;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+}
+
+.privacy-nav a {
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.privacy-nav a:hover {
+  text-decoration: underline;
+}
+
+.privacy-content {
+  padding: 32px 28px;
+}
+
+.privacy-section {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.privacy-section:last-child {
+  border-bottom: none;
+}
+
+.privacy-section h2 {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.privacy-section p {
+  color: var(--charcoal-soft);
+  margin-bottom: 12px;
+}
+
+.privacy-placeholder {
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+.privacy-notice-block {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.privacy-contact a {
+  color: var(--charcoal);
+  font-weight: 500;
+}
+
+.privacy-page-footer {
+  text-align: center;
+  margin-top: 28px;
+}
+
+.vault-privacy-footer {
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
+.vault-privacy-footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.vault-privacy-footer a:hover {
+  text-decoration: underline;
+}
+
+.privacy-promise-card .vault-sub {
+  white-space: pre-wrap;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.privacy-promise-links {
+  text-align: center;
+  font-size: 0.82rem;
+  margin-top: 14px;
+}
+
+.minor-guardian-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 18px 0 22px;
+  font-size: 0.95rem;
+  color: var(--charcoal-soft);
+}
+
+.minor-guardian-check input {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.recipient-age-panel {
+  margin-top: 20px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.recipient-age-grid {
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.recipient-age-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.recipient-age-modal[hidden] {
+  display: none;
+}
+
+body.recipient-age-modal-open {
+  overflow: hidden;
+}
+
+.recipient-age-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(42, 40, 38, 0.5);
+}
+
+.recipient-age-modal-panel {
+  position: relative;
+  z-index: 1;
+  max-width: 400px;
+  width: min(100%, 400px);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 28px 24px 24px;
+  box-shadow: 0 8px 32px rgba(42, 40, 38, 0.14);
+  text-align: center;
+}
+
+.recipient-age-modal-title {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  margin: 0 0 8px;
+  color: var(--charcoal);
+}
+
+.recipient-age-modal-sub {
+  margin: 0 0 20px;
+}
+
+.recipient-age-modal-grid {
+  max-width: none;
+}
+
+.recipient-age-modal-guardian-check {
+  text-align: left;
+  margin: 0 0 20px;
+}
+
+.recipient-age-modal-guardian-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
